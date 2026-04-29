@@ -169,7 +169,7 @@ class VisionRequest(BaseModel):
 async def analyze_image(req: VisionRequest):
     client = anthropic.Anthropic(api_key=ANTHROPIC_KEY)
     message = client.messages.create(
-        model="claude-sonnet-4-20250514",
+        model="claude-opus-4-5",
         max_tokens=80,
         messages=[{
             "role": "user",
@@ -209,7 +209,7 @@ Be very concise — 1-2 sentences max. Help with navigation, obstacles, and gene
 The user is walking so keep responses short and clear."""
 
     message = client.messages.create(
-        model="claude-sonnet-4-20250514",
+        model="claude-opus-4-5",
         max_tokens=120,
         system=system,
         messages=[{"role": "user", "content": req.message}]
