@@ -26,7 +26,8 @@ app.add_middleware(
 
 @app.get("/")
 async def serve_index():
-    return FileResponse("index.html")
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    return FileResponse(os.path.join(base_dir, "index.html"))
 
 # ── Snowflake ─────────────────────────────────────────────────
 def get_snowflake():
