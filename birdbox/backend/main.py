@@ -39,28 +39,31 @@ def get_snowflake():
         return None
 
 def log_to_snowflake(table: str, data: dict):
-    try:
-        conn = get_snowflake()
-        if not conn: return
-        cur = conn.cursor()
-        if table == "OBSTACLE_EVENTS":
-            cur.execute(
-                "INSERT INTO OBSTACLE_EVENTS (lat, lng, level, message) VALUES (%s,%s,%s,%s)",
-                (data.get("lat"), data.get("lng"), data.get("level"), data.get("message"))
-            )
-        elif table == "VOICE_COMMANDS":
-            cur.execute(
-                "INSERT INTO VOICE_COMMANDS (user_text, ai_response) VALUES (%s,%s)",
-                (data.get("user_text"), data.get("ai_response"))
-            )
-        elif table == "LOCATION_PINGS":
-            cur.execute(
-                "INSERT INTO LOCATION_PINGS (lat, lng, address) VALUES (%s,%s,%s)",
-                (data.get("lat"), data.get("lng"), data.get("address", ""))
-            )
-        conn.commit(); cur.close(); conn.close()
-    except Exception as e:
-        print(f"Snowflake log error: {e}")
+    import threading
+    def _log():
+        try:
+            conn = get_snowflake()
+            if not conn: return
+            cur = conn.cursor()
+            if table == "OBSTACLE_EVENTS":
+                cur.execute(
+                    "INSERT INTO OBSTACLE_EVENTS (lat, lng, level, message) VALUES (%s,%s,%s,%s)",
+                    (data.get("lat"), data.get("lng"), data.get("level"), data.get("message"))
+                )
+            elif table == "VOICE_COMMANDS":
+                cur.execute(
+                    "INSERT INTO VOICE_COMMANDS (user_text, ai_response) VALUES (%s,%s)",
+                    (data.get("user_text"), data.get("ai_response"))
+                )
+            elif table == "LOCATION_PINGS":
+                cur.execute(
+                    "INSERT INTO LOCATION_PINGS (lat, lng, address) VALUES (%s,%s,%s)",
+                    (data.get("lat"), data.get("lng"), data.get("address", ""))
+                )
+            conn.commit(); cur.close(); conn.close()
+        except Exception as e:
+            print(f"Snowflake log error: {e}")
+    threading.Thread(target=_log, daemon=True).start()
 
 # ── WebSocket manager ─────────────────────────────────────────
 class ConnectionManager:
