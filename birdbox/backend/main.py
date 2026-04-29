@@ -1,7 +1,7 @@
 from fastapi import FastAPI, Query, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
-import httpx, os, re, json
+import httpx, os, re, json, math
 from dotenv import load_dotenv
 from pydantic import BaseModel
 from typing import List, Optional
@@ -11,9 +11,9 @@ load_dotenv()
 
 app = FastAPI()
 
-MAPS_KEY       = os.getenv("GOOGLE_MAPS_API_KEY")
-ELEVEN_KEY     = os.getenv("ELEVENLABS_API_KEY")
-ANTHROPIC_KEY  = os.getenv("ANTHROPIC_API_KEY")
+MAPS_KEY      = os.getenv("GOOGLE_MAPS_API_KEY")
+ELEVEN_KEY    = os.getenv("ELEVENLABS_API_KEY")
+ANTHROPIC_KEY = os.getenv("ANTHROPIC_API_KEY")
 
 app.add_middleware(
     CORSMiddleware,
@@ -22,11 +22,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ── Snowflake connection ──────────────────────────────────────
+# ── Snowflake ─────────────────────────────────────────────────
 def get_snowflake():
     try:
         import snowflake.connector
-        conn = snowflake.connector.connect(
+        return snowflake.connector.connect(
             account   = os.getenv("SNOWFLAKE_ACCOUNT"),
             user      = os.getenv("SNOWFLAKE_USER"),
             password  = os.getenv("SNOWFLAKE_PASSWORD"),
@@ -34,60 +34,72 @@ def get_snowflake():
             database  = os.getenv("SNOWFLAKE_DATABASE",  "SMARTCANE_DB"),
             schema    = os.getenv("SNOWFLAKE_SCHEMA",    "PUBLIC"),
         )
-        return conn
     except Exception as e:
-        print(f"Snowflake connection error: {e}")
+        print(f"Snowflake error: {e}")
         return None
 
 def log_to_snowflake(table: str, data: dict):
-    """Fire-and-forget Snowflake insert — won't crash the app if it fails."""
     try:
         conn = get_snowflake()
         if not conn: return
         cur = conn.cursor()
         if table == "OBSTACLE_EVENTS":
             cur.execute(
-                "INSERT INTO OBSTACLE_EVENTS (lat, lng, level, message) VALUES (%s, %s, %s, %s)",
+                "INSERT INTO OBSTACLE_EVENTS (lat, lng, level, message) VALUES (%s,%s,%s,%s)",
                 (data.get("lat"), data.get("lng"), data.get("level"), data.get("message"))
             )
         elif table == "VOICE_COMMANDS":
             cur.execute(
-                "INSERT INTO VOICE_COMMANDS (user_text, ai_response) VALUES (%s, %s)",
+                "INSERT INTO VOICE_COMMANDS (user_text, ai_response) VALUES (%s,%s)",
                 (data.get("user_text"), data.get("ai_response"))
             )
         elif table == "LOCATION_PINGS":
             cur.execute(
-                "INSERT INTO LOCATION_PINGS (lat, lng, address) VALUES (%s, %s, %s)",
+                "INSERT INTO LOCATION_PINGS (lat, lng, address) VALUES (%s,%s,%s)",
                 (data.get("lat"), data.get("lng"), data.get("address", ""))
             )
-        conn.commit()
-        cur.close()
-        conn.close()
+        conn.commit(); cur.close(); conn.close()
     except Exception as e:
         print(f"Snowflake log error: {e}")
 
-
-# ── WebSocket manager (dashboard) ────────────────────────────
+# ── WebSocket manager ─────────────────────────────────────────
 class ConnectionManager:
-    def __init__(self):
-        self.active: List[WebSocket] = []
-
-    async def connect(self, ws: WebSocket):
-        await ws.accept()
-        self.active.append(ws)
-
-    def disconnect(self, ws: WebSocket):
-        if ws in self.active:
-            self.active.remove(ws)
-
-    async def broadcast(self, data: dict):
+    def __init__(self): self.active: List[WebSocket] = []
+    async def connect(self, ws):
+        await ws.accept(); self.active.append(ws)
+    def disconnect(self, ws):
+        if ws in self.active: self.active.remove(ws)
+    async def broadcast(self, data):
         for ws in self.active:
-            try:
-                await ws.send_json(data)
-            except:
-                pass
+            try: await ws.send_json(data)
+            except: pass
 
 manager = ConnectionManager()
+
+# ── Distance helpers ──────────────────────────────────────────
+def haversine(lat1, lng1, lat2, lng2) -> float:
+    """Returns distance in meters between two GPS coords."""
+    R = 6371000
+    phi1, phi2 = math.radians(lat1), math.radians(lat2)
+    dphi  = math.radians(lat2 - lat1)
+    dlng  = math.radians(lng2 - lng1)
+    a = math.sin(dphi/2)**2 + math.cos(phi1)*math.cos(phi2)*math.sin(dlng/2)**2
+    return R * 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
+
+def bearing(lat1, lng1, lat2, lng2) -> str:
+    """Returns cardinal direction from point 1 to point 2."""
+    dLng = math.radians(lng2 - lng1)
+    lat1r, lat2r = math.radians(lat1), math.radians(lat2)
+    x = math.sin(dLng) * math.cos(lat2r)
+    y = math.cos(lat1r)*math.sin(lat2r) - math.sin(lat1r)*math.cos(lat2r)*math.cos(dLng)
+    b = (math.degrees(math.atan2(x, y)) + 360) % 360
+    dirs = ["north","northeast","east","southeast","south","southwest","west","northwest"]
+    return dirs[round(b / 45) % 8]
+
+def format_distance(meters: float) -> str:
+    if meters < 1000:
+        return f"{round(meters)} meters"
+    return f"{round(meters/1000, 1)} km"
 
 
 # ── 1. Reverse geocode ────────────────────────────────────────
@@ -99,18 +111,19 @@ async def get_address(lat: float, lng: float):
             params={"latlng": f"{lat},{lng}", "key": MAPS_KEY}
         )
     data = r.json()
-    address = "Unknown location"
     if data["status"] == "OK":
         address = data["results"][0]["formatted_address"]
-        # log to Snowflake
         log_to_snowflake("LOCATION_PINGS", {"lat": lat, "lng": lng, "address": address})
         return {"address": address}
-    return {"address": address, "error": data["status"]}
+    return {"address": "Unknown location", "error": data["status"]}
 
 
-# ── 2. Nearby places ─────────────────────────────────────────
+# ── 2. Nearby places with distance + direction ────────────────
 @app.get("/places/nearby")
-async def nearby_places(lat: float, lng: float, query: str = Query(...)):
+async def nearby_places(
+    lat: float, lng: float,
+    query: str = Query(...)
+):
     async with httpx.AsyncClient() as client:
         r = await client.get(
             "https://maps.googleapis.com/maps/api/place/textsearch/json",
@@ -119,20 +132,30 @@ async def nearby_places(lat: float, lng: float, query: str = Query(...)):
     data = r.json()
     results = []
     for p in data.get("results", [])[:3]:
-        loc = p["geometry"]["location"]
+        loc  = p["geometry"]["location"]
+        dist = haversine(lat, lng, loc["lat"], loc["lng"])
+        dir_ = bearing(lat, lng, loc["lat"], loc["lng"])
         results.append({
-            "name":     p["name"],
-            "address":  p.get("vicinity") or p.get("formatted_address", ""),
-            "lat":      loc["lat"],
-            "lng":      loc["lng"],
-            "place_id": p["place_id"],
+            "name":      p["name"],
+            "address":   p.get("vicinity") or p.get("formatted_address", ""),
+            "lat":       loc["lat"],
+            "lng":       loc["lng"],
+            "place_id":  p["place_id"],
+            "distance":  round(dist),
+            "distance_text": format_distance(dist),
+            "direction": dir_,
         })
+    # sort by distance
+    results.sort(key=lambda x: x["distance"])
     return {"places": results}
 
 
-# ── 3. Directions ────────────────────────────────────────────
+# ── 3. Directions (walking, metric) ──────────────────────────
 @app.get("/directions")
-async def get_directions(origin_lat: float, origin_lng: float, dest_lat: float, dest_lng: float):
+async def get_directions(
+    origin_lat: float, origin_lng: float,
+    dest_lat: float,   dest_lng: float
+):
     async with httpx.AsyncClient() as client:
         r = await client.get(
             "https://maps.googleapis.com/maps/api/directions/json",
@@ -140,30 +163,82 @@ async def get_directions(origin_lat: float, origin_lng: float, dest_lat: float, 
                 "origin":      f"{origin_lat},{origin_lng}",
                 "destination": f"{dest_lat},{dest_lng}",
                 "mode":        "walking",
+                "units":       "metric",
                 "key":         MAPS_KEY
             }
         )
     data = r.json()
     if data["status"] != "OK":
         return {"steps": [], "error": data["status"]}
-    leg = data["routes"][0]["legs"][0]
+
+    leg   = data["routes"][0]["legs"][0]
     steps = []
     for s in leg["steps"]:
+        instruction = re.sub(r"<[^>]+>", "", s["html_instructions"])
         steps.append({
-            "instruction": re.sub(r"<[^>]+>", "", s["html_instructions"]),
-            "distance":    s["distance"]["text"],
-            "duration":    s["duration"]["text"],
+            "instruction":  instruction,
+            "distance_m":   s["distance"]["value"],       # meters (for GPS tracking)
+            "distance_text": s["distance"]["text"],
+            "duration_text": s["duration"]["text"],
+            "end_lat":      s["end_location"]["lat"],
+            "end_lng":      s["end_location"]["lng"],
         })
     return {
         "total_distance": leg["distance"]["text"],
         "total_duration": leg["duration"]["text"],
-        "steps": steps
+        "dest_lat":       dest_lat,
+        "dest_lng":       dest_lng,
+        "steps":          steps
     }
 
 
-# ── 4. Claude Vision — obstacle detection ────────────────────
+# ── 4. Navigate — full flow: search + speak options ───────────
+class NavigateRequest(BaseModel):
+    query:    str
+    user_lat: float
+    user_lng: float
+
+@app.post("/navigate")
+async def navigate(req: NavigateRequest):
+    """Returns places with spoken introduction ready for TTS."""
+    async with httpx.AsyncClient() as client:
+        r = await client.get(
+            "https://maps.googleapis.com/maps/api/place/textsearch/json",
+            params={"query": req.query, "location": f"{req.user_lat},{req.user_lng}", "radius": 2000, "key": MAPS_KEY}
+        )
+    data = r.json()
+    places = []
+    for p in data.get("results", [])[:3]:
+        loc  = p["geometry"]["location"]
+        dist = haversine(req.user_lat, req.user_lng, loc["lat"], loc["lng"])
+        dir_ = bearing(req.user_lat, req.user_lng, loc["lat"], loc["lng"])
+        places.append({
+            "name":          p["name"],
+            "address":       p.get("vicinity") or p.get("formatted_address", ""),
+            "lat":           loc["lat"],
+            "lng":           loc["lng"],
+            "distance":      round(dist),
+            "distance_text": format_distance(dist),
+            "direction":     dir_,
+        })
+    places.sort(key=lambda x: x["distance"])
+
+    if not places:
+        return {"places": [], "speech": f"Sorry, I couldn't find any {req.query} nearby."}
+
+    # build spoken response
+    parts = [f"I found {len(places)} option{'s' if len(places)>1 else ''}."]
+    for i, p in enumerate(places):
+        parts.append(f"Option {i+1}: {p['name']}, {p['distance_text']} to the {p['direction']}.")
+    parts.append("Which one would you like?")
+    speech = " ".join(parts)
+
+    return {"places": places, "speech": speech}
+
+
+# ── 5. Claude Vision ──────────────────────────────────────────
 class VisionRequest(BaseModel):
-    image: str  # base64 jpeg
+    image: str
 
 @app.post("/analyze")
 async def analyze_image(req: VisionRequest):
@@ -171,74 +246,50 @@ async def analyze_image(req: VisionRequest):
     message = client.messages.create(
         model="claude-haiku-4-5-20251001",
         max_tokens=80,
-        messages=[{
-            "role": "user",
-            "content": [
-                {
-                    "type": "image",
-                    "source": {"type": "base64", "media_type": "image/jpeg", "data": req.image}
-                },
-                {
-                    "type": "text",
-                    "text": """You are the obstacle detection module for a smart cane used by a visually impaired person.
-Analyze this camera frame. Respond with ONLY a JSON object (no markdown):
-{"level": "safe" | "warning" | "urgent", "message": "one short sentence max 12 words"}
-- urgent: stairs, vehicle, fast-moving person, glass door, low ceiling, traffic light
-- warning: person nearby, door, bicycle, dog, road ahead, crosswalk
-- safe: clear path ahead"""
-                }
-            ]
-        }]
+        messages=[{"role": "user", "content": [
+            {"type": "image", "source": {"type": "base64", "media_type": "image/jpeg", "data": req.image}},
+            {"type": "text", "text": """Obstacle detection for a smart cane. Analyze this camera frame.
+Respond ONLY with JSON (no markdown):
+{"level": "safe"|"warning"|"urgent", "message": "max 10 words"}
+- urgent: stairs, vehicle, person rushing at you, glass door, low ceiling, road
+- warning: person nearby, door, bicycle, dog, curb, crosswalk
+- safe: clear path"""}
+        ]}]
     )
     raw = message.content[0].text.strip()
-    result = json.loads(raw.replace("```json", "").replace("```", "").strip())
-    return result
+    return json.loads(raw.replace("```json","").replace("```","").strip())
 
 
-# ── 5. Claude Chat — voice assistant ─────────────────────────
+# ── 6. Claude Chat ────────────────────────────────────────────
 class ChatRequest(BaseModel):
-    message: str
+    message:  str
     location: Optional[dict] = None
 
 @app.post("/chat")
 async def chat(req: ChatRequest):
     client = anthropic.Anthropic(api_key=ANTHROPIC_KEY)
-
-    system = """You are BirdBox, a voice assistant for a visually impaired user walking outdoors.
-Be very concise — 1-2 sentences max. Help with navigation, obstacles, and general questions.
-The user is walking so keep responses short and clear."""
-
     message = client.messages.create(
         model="claude-haiku-4-5-20251001",
-        max_tokens=120,
-        system=system,
+        max_tokens=100,
+        system="""You are BirdBox, a voice assistant for a visually impaired user walking outdoors.
+Be very concise — 1-2 sentences max. Help with navigation, obstacles, and general questions.""",
         messages=[{"role": "user", "content": req.message}]
     )
     reply = message.content[0].text.strip()
-
-    # log to Snowflake
-    log_to_snowflake("VOICE_COMMANDS", {
-        "user_text":   req.message,
-        "ai_response": reply
-    })
-
+    log_to_snowflake("VOICE_COMMANDS", {"user_text": req.message, "ai_response": reply})
     return {"reply": reply}
 
 
-# ── 6. ElevenLabs TTS ────────────────────────────────────────
+# ── 7. ElevenLabs TTS ─────────────────────────────────────────
 class TTSRequest(BaseModel):
-    text: str
-    api_key: str = ""
+    text:     str
+    api_key:  str = ""
     voice_id: str = "Rachel"
 
 @app.post("/tts")
 async def text_to_speech(req: TTSRequest):
     key = req.api_key or ELEVEN_KEY
-    voice_map = {
-        "Rachel": "21m00Tcm4TlvDq8ikWAM",
-        "Adam":   "pNInz6obpgDQGcFmaJgB",
-        "Bella":  "EXAVITQu4vr4xnSDxMaL",
-    }
+    voice_map = {"Rachel":"21m00Tcm4TlvDq8ikWAM","Adam":"pNInz6obpgDQGcFmaJgB","Bella":"EXAVITQu4vr4xnSDxMaL"}
     vid = voice_map.get(req.voice_id, req.voice_id)
     async with httpx.AsyncClient() as client:
         r = await client.post(
@@ -253,7 +304,7 @@ async def text_to_speech(req: TTSRequest):
     return StreamingResponse(iter([r.content]), media_type="audio/mpeg")
 
 
-# ── 7. Location update → dashboard + Snowflake ───────────────
+# ── 8. Location update → dashboard ───────────────────────────
 class LocationUpdate(BaseModel):
     lat:     float
     lng:     float
@@ -262,89 +313,44 @@ class LocationUpdate(BaseModel):
 
 @app.post("/location/update")
 async def location_update(update: LocationUpdate):
-    # broadcast to dashboard
     await manager.broadcast({
-        "type":    "location",
-        "lat":     update.lat,
-        "lng":     update.lng,
-        "level":   update.level,
-        "message": update.message,
+        "type": "location", "lat": update.lat, "lng": update.lng,
+        "level": update.level, "message": update.message,
     })
-    # log obstacle events to Snowflake (skip plain location pings)
     if update.message and update.message != "Location acquired":
         log_to_snowflake("OBSTACLE_EVENTS", {
-            "lat":     update.lat,
-            "lng":     update.lng,
-            "level":   update.level,
-            "message": update.message,
+            "lat": update.lat, "lng": update.lng,
+            "level": update.level, "message": update.message,
         })
     return {"ok": True}
 
 
-# ── 8. Analytics endpoint (for dashboard) ────────────────────
+# ── 9. Analytics ──────────────────────────────────────────────
 @app.get("/analytics")
 async def get_analytics():
     try:
         conn = get_snowflake()
-        if not conn:
-            return {"error": "Snowflake not connected"}
+        if not conn: return {"error": "Snowflake not connected"}
         cur = conn.cursor()
-
-        # total events by level
-        cur.execute("""
-            SELECT level, COUNT(*) as count
-            FROM OBSTACLE_EVENTS
-            GROUP BY level
-            ORDER BY count DESC
-        """)
-        level_counts = {row[0]: row[1] for row in cur.fetchall()}
-
-        # most recent 10 events
-        cur.execute("""
-            SELECT timestamp, level, message, lat, lng
-            FROM OBSTACLE_EVENTS
-            ORDER BY timestamp DESC
-            LIMIT 10
-        """)
-        recent = [
-            {"timestamp": str(r[0]), "level": r[1], "message": r[2], "lat": r[3], "lng": r[4]}
-            for r in cur.fetchall()
-        ]
-
-        # total voice commands
+        cur.execute("SELECT level, COUNT(*) FROM OBSTACLE_EVENTS GROUP BY level ORDER BY COUNT(*) DESC")
+        level_counts = {r[0]: r[1] for r in cur.fetchall()}
+        cur.execute("SELECT timestamp, level, message, lat, lng FROM OBSTACLE_EVENTS ORDER BY timestamp DESC LIMIT 10")
+        recent = [{"timestamp":str(r[0]),"level":r[1],"message":r[2],"lat":r[3],"lng":r[4]} for r in cur.fetchall()]
         cur.execute("SELECT COUNT(*) FROM VOICE_COMMANDS")
         voice_count = cur.fetchone()[0]
-
-        # most common obstacles
-        cur.execute("""
-            SELECT message, COUNT(*) as cnt
-            FROM OBSTACLE_EVENTS
-            WHERE level != 'safe'
-            GROUP BY message
-            ORDER BY cnt DESC
-            LIMIT 5
-        """)
-        top_obstacles = [{"message": r[0], "count": r[1]} for r in cur.fetchall()]
-
-        cur.close()
-        conn.close()
-
-        return {
-            "level_counts":   level_counts,
-            "recent_events":  recent,
-            "voice_commands": voice_count,
-            "top_obstacles":  top_obstacles,
-        }
+        cur.execute("SELECT message, COUNT(*) as cnt FROM OBSTACLE_EVENTS WHERE level != 'safe' GROUP BY message ORDER BY cnt DESC LIMIT 5")
+        top_obstacles = [{"message":r[0],"count":r[1]} for r in cur.fetchall()]
+        cur.close(); conn.close()
+        return {"level_counts":level_counts,"recent_events":recent,"voice_commands":voice_count,"top_obstacles":top_obstacles}
     except Exception as e:
         return {"error": str(e)}
 
 
-# ── 9. WebSocket (dashboard) ─────────────────────────────────
+# ── 10. WebSocket ─────────────────────────────────────────────
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     await manager.connect(websocket)
     try:
-        while True:
-            await websocket.receive_text()
+        while True: await websocket.receive_text()
     except WebSocketDisconnect:
         manager.disconnect(websocket)
