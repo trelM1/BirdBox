@@ -7,6 +7,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;700;800&display=swap" rel="stylesheet">
 <style>
   :root {
+    cursor: pointer;
     --bg: #080c0c;
     --surface: #0f1a1a;
     --border: #1a2e2e;
@@ -177,12 +178,12 @@
   </div>
 
   <div class="btn-row">
-    <button class="btn btn-flip" id="btnFlip" title="Flip camera">⟳</button>
-    <button class="btn btn-start" id="btnStart">START SCANNING</button>
-    <button class="btn btn-stop" id="btnStop" style="display:none">■ STOP</button>
+    <button class="btn btn-flip"  id="btnFlip"  onclick="void(0)">⟳</button>
+    <button class="btn btn-start" id="btnStart" onclick="void(0)">▶ START</button>
+    <button class="btn btn-stop"  id="btnStop"  onclick="void(0)" style="display:none">■ STOP</button>
   </div>
   
-  <button class="btn btn-location" id="btnLocation">GET MY LOCATION</button>
+  <button class="btn btn-location" id="btnLocation" onclick="void(0)"> GET MY LOCATION</button>
   <div id="locationDisplay" style="font-family:var(--mono);font-size:10px;color:var(--muted);text-align:center;min-height:16px;"></div>
 
   <div class="frame-count" id="frameCount">FRAMES ANALYZED: 0</div>
@@ -211,6 +212,11 @@
   let facingMode = 'environment';
   let intervalMs = 2500;
   let frameCount = 0;
+  
+  document.addEventListener('touchstart', () => {
+  const ctx = new (window.AudioContext || window.webkitAudioContext)();
+  ctx.resume();
+  }, { once: true });
 
   document.querySelectorAll('.ipill').forEach(pill => {
     pill.addEventListener('click', () => {
