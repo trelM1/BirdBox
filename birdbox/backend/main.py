@@ -6,6 +6,8 @@ from dotenv import load_dotenv
 from pydantic import BaseModel
 from typing import List, Optional
 import anthropic
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 
 load_dotenv()
 
@@ -21,6 +23,10 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+@app.get("/")
+async def serve_index():
+    return FileResponse("index.html")
 
 # ── Snowflake ─────────────────────────────────────────────────
 def get_snowflake():
