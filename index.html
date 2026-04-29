@@ -342,23 +342,42 @@
       showAlert('warning', 'GPS not supported on this device.');
       return;
     }
-    if (geoWatchId !== null) return; // already watching
-    geoWatchId = navigator.geolocation.watchPosition(
+    if (geoWatchId !== null) return;
+
+    // iOS Safari fix: getCurrentPosition first to "warm up" the GPS,
+    // then start watchPosition — avoids silent failure from dual permission dialogs
+    navigator.geolocation.getCurrentPosition(
       (pos) => {
         userLocation = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-        if (navActive) checkNavProgress();
+        showAlert('safe', `📍 GPS locked: ${pos.coords.latitude.toFixed(4)}, ${pos.coords.longitude.toFixed(4)}`);
+        // now start continuous watch
+        geoWatchId = navigator.geolocation.watchPosition(
+          (pos) => {
+            userLocation = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+            if (navActive) checkNavProgress();
+          },
+          (err) => {
+            const msgs = {
+              1: 'Location permission denied. Enable GPS in Safari Settings.',
+              2: 'GPS signal unavailable. Go outside or near a window.',
+              3: 'GPS timed out. Retrying...'
+            };
+            showAlert('warning', msgs[err.code] || 'GPS error.');
+            if (err.code === 3) { geoWatchId = null; setTimeout(initLocation, 4000); }
+          },
+          { enableHighAccuracy: true, maximumAge: 2000, timeout: 20000 }
+        );
       },
       (err) => {
         const msgs = {
-          1: 'Location permission denied. Enable GPS in browser settings.',
-          2: 'GPS signal unavailable.',
-          3: 'GPS timed out. Retrying...'
+          1: 'Location denied. Go to Settings > Safari > Location and allow.',
+          2: 'GPS signal unavailable. Try moving outside.',
+          3: 'GPS timed out. Make sure Location Services is ON.'
         };
-        showAlert('warning', msgs[err.code] || 'GPS error.');
-        // retry after a delay for timeout errors
-        if (err.code === 3) { geoWatchId = null; setTimeout(initLocation, 3000); }
+        showAlert('warning', msgs[err.code] || 'GPS failed.');
+        if (err.code === 3) setTimeout(initLocation, 4000);
       },
-      { enableHighAccuracy: true, maximumAge: 2000, timeout: 15000 }
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
     );
   }
 
@@ -521,7 +540,8 @@
   btnStart.addEventListener('click', async () => {
     const ok = await startCamera();
     if (!ok) return;
-    initLocation(); // start GPS after user gesture — required by mobile browsers
+    // iOS Safari: delay GPS init so camera permission dialog is fully closed first
+    setTimeout(initLocation, 800);
     btnStart.style.display = 'none';
     btnStop.style.display  = 'flex';
     setStatus('active', 'LIVE');
