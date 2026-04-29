@@ -251,6 +251,7 @@
       <label class="toggle"><input type="checkbox" id="useEleven"><span class="toggle-slider"></span></label>
     </div>
     <input class="settings-input" id="elevenKey" type="password" placeholder="ElevenLabs API key (optional)">
+    <input class="settings-input" id="anthropicKey" type="password" placeholder="Anthropic API key (required for voice)" style="margin-top:8px">
   </div>
   <div class="settings-section">
     <div class="section-label">📡 Haptic Legend</div>
@@ -270,7 +271,19 @@
   // ── CONFIG ───────────────────────────────────────────────────
   const BACKEND    = 'https://smelting-unleaded-plow.ngrok-free.dev';
   const WAKE_WORDS = ['hey birdbox','hey bird box','birdbox','bird box','hey bird'];
-  const NAV_THRESHOLD = 15; // meters — when to advance to next step
+  const NAV_THRESHOLD = 15;
+
+  // API key stored in localStorage — never hardcoded
+  function getAnthropicKey() {
+    const fieldKey = document.getElementById('anthropicKey')?.value.trim();
+    if (fieldKey) { localStorage.setItem('anthropic_key', fieldKey); return fieldKey; }
+    let key = localStorage.getItem('anthropic_key');
+    if (!key) {
+      key = prompt('Enter your Anthropic API key to enable BirdBox voice:');
+      if (key) localStorage.setItem('anthropic_key', key.trim());
+    }
+    return key;
+  }
 
   let stream       = null;
   let scanInterval = null;
@@ -726,16 +739,29 @@
 
     // ── GENERAL CHAT ───────────────────────────────────────────
     try {
-      const locationContext = userLocation
-        ? { ...userLocation, address: cachedAddress || null }
-        : null;
-      const res = await fetch(`${BACKEND}/chat`, {
+      const locationStr = userLocation
+        ? (cachedAddress
+            ? `\nUser's current location: ${cachedAddress} (coordinates: ${userLocation.lat}, ${userLocation.lng})`
+            : `\nUser's current GPS: ${userLocation.lat}, ${userLocation.lng}`)
+        : '';
+
+      const res = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' },
-        body: JSON.stringify({ message: text, location: locationContext })
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': getAnthropicKey(),
+          'anthropic-version': '2023-06-01',
+          'anthropic-dangerous-direct-browser-access': 'true'
+        },
+        body: JSON.stringify({
+          model: 'claude-haiku-4-5-20251001',
+          max_tokens: 100,
+          system: `You are BirdBox, a voice assistant for a visually impaired user walking outdoors. Be very concise — 1-2 sentences max. Help with navigation, obstacles, and general questions.${locationStr}`,
+          messages: [{ role: 'user', content: text }]
+        })
       });
       const data  = await res.json();
-      const reply = data.reply;
+      const reply = data.content[0].text.trim();
       aiTranscript.textContent = `BirdBox: ${reply}`;
       await speak(reply);
     } catch {
