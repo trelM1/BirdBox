@@ -361,21 +361,40 @@ let userLocation = null;
 async function getLocation() {
   const display = document.getElementById('locationDisplay');
   display.textContent = 'Getting location...';
-  if (!navigator.geolocation) { display.textContent = 'Geolocation not supported.'; return; }
+  
   navigator.geolocation.getCurrentPosition(async (pos) => {
     const lat = pos.coords.latitude;
     const lng = pos.coords.longitude;
     userLocation = { lat, lng };
+    
+    // 🔥 SEND TO DASHBOARD IMMEDIATELY
     try {
-      const res  = await fetch(`${BACKEND}/location/address?lat=${lat}&lng=${lng}`);
-      const data = await res.json();
-      display.textContent = `📍 ${data.address}`;
-    } catch {
+      const res = await fetch(`${BACKEND}/location/update`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          lat, lng, 
+          level: 'safe',
+          message: 'Location acquired'
+        })
+      });
+      if (res.ok) {
+        display.textContent = `📍 SENT ${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+      }
+    } catch (e) {
       display.textContent = `📍 ${lat.toFixed(5)}, ${lng.toFixed(5)}`;
     }
-  }, () => {
-    display.textContent = 'Location denied or unavailable.';
-  }, { enableHighAccuracy: true });
+    
+    // Also get address for display
+    try {
+      const addrRes = await fetch(`${BACKEND}/location/address?lat=${lat}&lng=${lng}`);
+      const addrData = await addrRes.json();
+      display.textContent += ` | ${addrData.address}`;
+    } catch {}
+    
+  }, (err) => {
+    display.textContent = `Location error: ${err.message}`;
+  }, { enableHighAccuracy: true, timeout: 10000 });
 }
 
 async function searchNearby(query) {

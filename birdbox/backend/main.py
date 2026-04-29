@@ -29,17 +29,22 @@ class ConnectionManager:
         self.active.append(ws)
 
     def disconnect(self, ws: WebSocket):
-        self.active.remove(ws)
+        if ws in self.active:  # ADD SAFETY CHECK
+            self.active.remove(ws)
 
     async def broadcast(self, data: dict):
+        disconnected = []
         for ws in self.active:
             try:
                 await ws.send_json(data)
-            except:
-                pass
+            except Exception:
+                disconnected.append(ws)  # COLLECT DEAD CONNECTIONS
+        
+        # CLEANUP DEAD CONNECTIONS
+        for ws in disconnected:
+            self.disconnect(ws)
 
 manager = ConnectionManager()
-
 
 # ── 1. Reverse geocode ────────────────────────────────────────
 @app.get("/location/address")
@@ -54,6 +59,18 @@ async def get_address(lat: float, lng: float):
         return {"address": data["results"][0]["formatted_address"]}
     return {"address": "Unknown location", "error": data["status"]}
 
+@app.post("/location/update")
+async def location_update(update: LocationUpdate):
+    print(f"📍 Location update: {update.lat}, {update.lng} ({update.level})")  # DEBUG
+    await manager.broadcast({  # ← Uses the manager instance above
+        "type":     "location",
+        "lat":      update.lat,
+        "lng":      update.lng,
+        "level":    update.level,
+        "message":  update.message,
+        "timestamp": update.dict()
+    })
+    return {"ok": True, "connections": len(manager.active)}
 
 # ── 2. Nearby places ─────────────────────────────────────────
 @app.get("/places/nearby")
@@ -181,17 +198,17 @@ class LocationUpdate(BaseModel):
     level:    str = "safe"     # safe | warning | urgent
     message:  str = ""
 
-@app.post("/location/update")
-async def location_update(update: LocationUpdate):
-    """Phone calls this to push location + obstacle status to dashboard."""
+@app.post("/test/location")
+async def test_location():
+    """Test endpoint to simulate phone location updates"""
     await manager.broadcast({
-        "type":    "location",
-        "lat":     update.lat,
-        "lng":     update.lng,
-        "level":   update.level,
-        "message": update.message,
+        "type": "location",
+        "lat": 40.7128,
+        "lng": -74.0060,
+        "level": "urgent",
+        "message": "Test location update!"
     })
-    return {"ok": True}
+    return {"status": "broadcasted", "active_connections": len(manager.active)}
 
 
 # ── 6. WebSocket endpoint (dashboard connects here) ──────────
@@ -202,4 +219,7 @@ async def websocket_endpoint(websocket: WebSocket):
         while True:
             await websocket.receive_text()   # keep alive
     except WebSocketDisconnect:
+        manager.disconnect(websocket)
+    except Exception as e:  # ADD THIS
+        print(f"WebSocket error: {e}")
         manager.disconnect(websocket)
