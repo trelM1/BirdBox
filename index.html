@@ -3,11 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>SmartCane — Camera</title>
+<title>SmartCane</title>
 <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;700;800&display=swap" rel="stylesheet">
 <style>
   :root {
-    cursor: pointer;
     --bg: #080c0c;
     --surface: #0f1a1a;
     --border: #1a2e2e;
@@ -22,7 +21,7 @@
     --display: 'Syne', sans-serif;
   }
 
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; cursor: pointer; }
 
   body {
     background: var(--bg);
@@ -38,62 +37,52 @@
   body::after {
     content: '';
     position: fixed; inset: 0;
-    background: repeating-linear-gradient(
-      0deg, transparent, transparent 2px,
-      rgba(0,0,0,0.08) 2px, rgba(0,0,0,0.08) 4px
-    );
+    background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.08) 2px, rgba(0,0,0,0.08) 4px);
     pointer-events: none;
     z-index: 100;
   }
 
   header {
-    padding: 16px 20px 12px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
+    padding: 12px 20px;
+    display: flex; align-items: center; justify-content: space-between;
     border-bottom: 1px solid var(--border);
-    z-index: 10;
-    flex-shrink: 0;
+    z-index: 10; flex-shrink: 0;
   }
   .logo { font-size: 18px; font-weight: 800; letter-spacing: -.02em; color: var(--teal); }
   .logo span { color: var(--text); }
-  .status-dot {
-    width: 8px; height: 8px; border-radius: 50%;
-    background: var(--muted); transition: all .3s;
-    display: inline-block; margin-right: 6px;
-  }
-  .status-dot.active { background: var(--teal); box-shadow: 0 0 8px var(--teal-glow); animation: pulse-dot 2s infinite; }
-  .status-dot.scanning { background: var(--amber); box-shadow: 0 0 8px rgba(255,176,32,.5); animation: pulse-dot 1s infinite; }
-  @keyframes pulse-dot { 0%, 100% { opacity: 1; } 50% { opacity: .4; } }
-  .status-text { font-family: var(--mono); font-size: 10px; letter-spacing: .08em; color: var(--muted); text-transform: uppercase; }
-  .status-text.active { color: var(--teal); }
-  .status-text.scanning { color: var(--amber); }
 
+  .tabs { display: flex; border-bottom: 1px solid var(--border); flex-shrink: 0; z-index: 10; background: var(--surface); }
+  .tab { flex: 1; padding: 10px; font-family: var(--mono); font-size: 10px; letter-spacing: .1em; text-transform: uppercase; text-align: center; color: var(--muted); border-bottom: 2px solid transparent; transition: all .2s; }
+  .tab.active { color: var(--teal); border-bottom-color: var(--teal); }
+
+  .page { display: none; flex: 1; flex-direction: column; min-height: 0; overflow-y: auto; }
+  .page.active { display: flex; }
+
+  /* ── CAMERA ── */
   .camera-wrap { position: relative; flex: 1; overflow: hidden; background: #000; min-height: 0; }
   video { width: 100%; height: 100%; object-fit: cover; display: block; }
   canvas { display: none; }
-
   .hud { position: absolute; inset: 0; pointer-events: none; }
   .corner { position: absolute; width: 28px; height: 28px; border-color: var(--teal); border-style: solid; opacity: .7; }
   .corner.tl { top: 16px; left: 16px; border-width: 2px 0 0 2px; }
   .corner.tr { top: 16px; right: 16px; border-width: 2px 2px 0 0; }
   .corner.bl { bottom: 80px; left: 16px; border-width: 0 0 2px 2px; }
   .corner.br { bottom: 80px; right: 16px; border-width: 0 2px 2px 0; }
-
   .scan-line { position: absolute; left: 0; right: 0; height: 2px; background: linear-gradient(90deg, transparent, var(--teal), transparent); opacity: 0; top: 20%; }
   .scan-line.running { opacity: .6; animation: scan 2s ease-in-out infinite; }
   @keyframes scan { 0% { top: 15%; opacity: 0; } 10% { opacity: .6; } 90% { opacity: .6; } 100% { top: 80%; opacity: 0; } }
 
   .alert-overlay {
-    position: absolute; bottom: 80px; left: 12px; right: 12px;
+    position: absolute; bottom: 12px; left: 12px; right: 12px;
     background: rgba(8,12,12,.88); border: 1px solid var(--border);
     border-left: 3px solid var(--teal); border-radius: 6px;
     padding: 12px 14px; backdrop-filter: blur(8px);
     display: none; animation: slide-up .25s ease;
   }
   .alert-overlay.visible { display: block; }
-  .alert-overlay.urgent { border-left-color: var(--red); }
+  .alert-overlay.urgent  { border-left-color: var(--red); }
   .alert-overlay.warning { border-left-color: var(--amber); }
+  .alert-overlay.safe    { border-left-color: var(--teal); }
   @keyframes slide-up { from { transform: translateY(10px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
   .alert-type { font-family: var(--mono); font-size: 9px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); margin-bottom: 4px; }
   .alert-overlay.urgent  .alert-type { color: var(--red); }
@@ -106,27 +95,69 @@
   .no-camera .icon { font-size: 3rem; opacity: .4; }
   .no-camera p { font-family: var(--mono); font-size: 12px; color: var(--muted); text-align: center; max-width: 220px; line-height: 1.6; }
 
-  .controls { padding: 14px 20px 24px; background: var(--surface); border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 10px; flex-shrink: 0; z-index: 10; }
+  .controls { padding: 12px 16px 16px; background: var(--surface); border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 8px; flex-shrink: 0; z-index: 10; }
   .api-row { display: flex; gap: 8px; align-items: center; }
-  .api-input { flex: 1; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 9px 12px; font-family: var(--mono); font-size: 11px; color: var(--text); outline: none; transition: border-color .2s; }
+  .api-input { flex: 1; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 8px 12px; font-family: var(--mono); font-size: 11px; color: var(--text); outline: none; transition: border-color .2s; }
   .api-input:focus { border-color: var(--teal); }
   .api-input::placeholder { color: var(--muted); }
 
   .btn-row { display: flex; gap: 8px; }
-  .btn { flex: 1; padding: 13px; border: none; border-radius: 8px; font-family: var(--display); font-size: 13px; font-weight: 700; letter-spacing: .02em; cursor: pointer; transition: all .15s; display: flex; align-items: center; justify-content: center; gap: 7px; -webkit-user-select: none; }
+  .btn { flex: 1; padding: 11px; border: none; border-radius: 8px; font-family: var(--display); font-size: 12px; font-weight: 700; letter-spacing: .02em; transition: all .15s; display: flex; align-items: center; justify-content: center; gap: 6px; user-select: none; -webkit-user-select: none; }
   .btn:active { transform: scale(.96); }
-  .btn-start { background: var(--teal); color: var(--bg); }
-  .btn-start:disabled { background: var(--border); color: var(--muted); cursor: not-allowed; }
-  .btn-stop { background: transparent; color: var(--red); border: 1.5px solid var(--red); }
-  .btn-flip { flex: 0 0 52px; background: var(--teal-dim); color: var(--teal); border: 1px solid var(--border); font-size: 18px; }
+  .btn-start    { background: var(--teal); color: var(--bg); }
+  .btn-stop     { background: transparent; color: var(--red); border: 1.5px solid var(--red); }
+  .btn-flip     { flex: 0 0 48px; background: var(--teal-dim); color: var(--teal); border: 1px solid var(--border); font-size: 16px; }
   .btn-location { background: var(--teal-dim); color: var(--teal); border: 1px solid var(--border); }
 
   .interval-row { display: flex; align-items: center; justify-content: space-between; padding: 0 2px; }
   .interval-label { font-family: var(--mono); font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .1em; }
   .interval-pills { display: flex; gap: 4px; }
-  .ipill { padding: 4px 10px; border-radius: 99px; font-family: var(--mono); font-size: 10px; background: var(--bg); border: 1px solid var(--border); color: var(--muted); cursor: pointer; transition: all .15s; }
+  .ipill { padding: 4px 10px; border-radius: 99px; font-family: var(--mono); font-size: 10px; background: var(--bg); border: 1px solid var(--border); color: var(--muted); transition: all .15s; }
   .ipill.active { background: var(--teal-dim); border-color: var(--teal); color: var(--teal); }
   .frame-count { font-family: var(--mono); font-size: 9px; color: var(--muted); text-align: center; letter-spacing: .1em; }
+
+  /* ── VOICE ── */
+  .voice-page { padding: 20px 16px; gap: 16px; }
+  .voice-btn-wrap { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 24px 0; }
+  .btn-voice { width: 100px; height: 100px; border-radius: 50%; background: var(--teal-dim); border: 2px solid var(--teal); color: var(--teal); font-size: 2.2rem; display: flex; align-items: center; justify-content: center; user-select: none; -webkit-user-select: none; transition: all .15s; }
+  .btn-voice.listening { background: var(--teal); color: var(--bg); animation: voice-pulse 1s infinite; }
+  .btn-voice.speaking  { border-color: var(--amber); color: var(--amber); animation: voice-pulse-amber 1s infinite; }
+  @keyframes voice-pulse       { 0%,100%{box-shadow:0 0 0 0 var(--teal-glow);}        50%{box-shadow:0 0 0 20px rgba(0,229,200,0);} }
+  @keyframes voice-pulse-amber { 0%,100%{box-shadow:0 0 0 0 rgba(255,176,32,.4);}     50%{box-shadow:0 0 0 20px rgba(255,176,32,0);} }
+  .voice-status { font-family: var(--mono); font-size: 11px; color: var(--muted); letter-spacing: .1em; text-transform: uppercase; text-align: center; }
+  .voice-status.listening { color: var(--teal); }
+  .voice-status.speaking  { color: var(--amber); }
+  .transcript-box { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 14px; min-height: 80px; font-size: 13px; line-height: 1.6; }
+  .transcript-box .label { font-family: var(--mono); font-size: 9px; color: var(--muted); letter-spacing: .12em; text-transform: uppercase; margin-bottom: 6px; }
+  .transcript-box .user-text { color: var(--teal); margin-bottom: 8px; }
+  .transcript-box .ai-text   { color: var(--text); }
+  .voice-keys { display: flex; flex-direction: column; gap: 8px; }
+
+  /* ── SETTINGS ── */
+  .settings-page { padding: 20px 16px; gap: 16px; }
+  .settings-section { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 14px; }
+  .settings-title { font-family: var(--mono); font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: var(--teal); margin-bottom: 12px; }
+  .setting-row { display: flex; align-items: center; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border); gap: 12px; }
+  .setting-row:last-child { border-bottom: none; }
+  .setting-label { font-size: 13px; font-weight: 500; }
+  .setting-desc  { font-family: var(--mono); font-size: 10px; color: var(--muted); margin-top: 2px; }
+  .haptic-demo { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
+  .haptic-btn { padding: 6px 12px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg); color: var(--text); font-family: var(--mono); font-size: 10px; transition: all .15s; }
+  .haptic-btn:active { background: var(--teal-dim); border-color: var(--teal); }
+  .toggle { position: relative; width: 44px; height: 24px; flex-shrink: 0; }
+  .toggle input { opacity: 0; width: 0; height: 0; }
+  .toggle-slider { position: absolute; inset: 0; background: var(--border); border-radius: 99px; transition: .2s; }
+  .toggle-slider::before { content: ''; position: absolute; width: 18px; height: 18px; left: 3px; top: 3px; background: var(--muted); border-radius: 50%; transition: .2s; }
+  .toggle input:checked + .toggle-slider { background: var(--teal-dim); border: 1px solid var(--teal); }
+  .toggle input:checked + .toggle-slider::before { transform: translateX(20px); background: var(--teal); }
+
+  .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); transition: all .3s; display: inline-block; margin-right: 6px; }
+  .status-dot.active   { background: var(--teal); box-shadow: 0 0 8px var(--teal-glow); animation: pulse-dot 2s infinite; }
+  .status-dot.scanning { background: var(--amber); box-shadow: 0 0 8px rgba(255,176,32,.5); animation: pulse-dot 1s infinite; }
+  @keyframes pulse-dot { 0%, 100% { opacity: 1; } 50% { opacity: .4; } }
+  .status-text { font-family: var(--mono); font-size: 10px; letter-spacing: .08em; color: var(--muted); text-transform: uppercase; }
+  .status-text.active   { color: var(--teal); }
+  .status-text.scanning { color: var(--amber); }
 </style>
 </head>
 <body>
@@ -139,85 +170,163 @@
   </div>
 </header>
 
-<div class="camera-wrap" id="cameraWrap">
-  <video id="video" autoplay playsinline muted></video>
-  <canvas id="canvas"></canvas>
+<div class="tabs">
+  <div class="tab active" data-tab="camera">📷 Camera</div>
+  <div class="tab" data-tab="voice">🎤 Voice</div>
+  <div class="tab" data-tab="settings">⚙️ Settings</div>
+</div>
 
-  <div class="hud">
-    <div class="corner tl"></div>
-    <div class="corner tr"></div>
-    <div class="corner bl"></div>
-    <div class="corner br"></div>
-    <div class="scan-line" id="scanLine"></div>
+<!-- ══════════ CAMERA ══════════ -->
+<div class="page active" id="page-camera">
+  <div class="camera-wrap">
+    <video id="video" autoplay playsinline muted></video>
+    <canvas id="canvas"></canvas>
+    <div class="hud">
+      <div class="corner tl"></div><div class="corner tr"></div>
+      <div class="corner bl"></div><div class="corner br"></div>
+      <div class="scan-line" id="scanLine"></div>
+    </div>
+    <div class="alert-overlay" id="alertOverlay">
+      <div class="alert-type" id="alertType">DETECTING</div>
+      <div class="alert-text" id="alertText">Initializing...</div>
+      <div class="alert-time" id="alertTime"></div>
+    </div>
+    <div class="no-camera" id="noCam">
+      <div class="icon">📷</div>
+      <p>Tap START to begin scanning.</p>
+    </div>
   </div>
-
-  <div class="alert-overlay" id="alertOverlay">
-    <div class="alert-type" id="alertType">DETECTING</div>
-    <div class="alert-text" id="alertText">Initializing obstacle detection...</div>
-    <div class="alert-time" id="alertTime"></div>
-  </div>
-
-  <div class="no-camera" id="noCam">
-    <div class="icon">📷</div>
-    <p>Camera access required.<br>Enter your OpenAI key and tap START.</p>
+  <div class="controls">
+    <div class="interval-row">
+      <span class="interval-label">Scan every</span>
+      <div class="interval-pills">
+        <div class="ipill" data-val="1500">1.5s</div>
+        <div class="ipill active" data-val="2500">2.5s</div>
+        <div class="ipill" data-val="4000">4s</div>
+      </div>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-flip"  id="btnFlip"  onclick="void(0)">⟳</button>
+      <button class="btn btn-start" id="btnStart" onclick="void(0)">▶ START SCANNING</button>
+      <button class="btn btn-stop"  id="btnStop"  onclick="void(0)" style="display:none">■ STOP</button>
+    </div>
+    <button class="btn btn-location" id="btnLocation" onclick="void(0)">📍 GET MY LOCATION</button>
+    <div id="locationDisplay" style="font-family:var(--mono);font-size:10px;color:var(--muted);text-align:center;min-height:16px;"></div>
+    <div class="frame-count" id="frameCount">FRAMES ANALYZED: 0</div>
   </div>
 </div>
 
-<div class="controls">
-  <div class="api-row">
-    <input class="api-input" id="apiKey" type="password" placeholder="sk-... OpenAI API key">
-  </div>
-
-  <div class="interval-row">
-    <span class="interval-label">Scan every</span>
-    <div class="interval-pills">
-      <div class="ipill" data-val="1500">1.5s</div>
-      <div class="ipill active" data-val="2500">2.5s</div>
-      <div class="ipill" data-val="4000">4s</div>
+<!-- ══════════ VOICE ══════════ -->
+<div class="page" id="page-voice">
+  <div class="voice-page">
+    <div class="voice-keys">
+      <div class="api-row">
+        <input class="api-input" id="elevenKey" type="password" placeholder="ElevenLabs API key (optional)">
+      </div>
+    </div>
+    <div class="voice-btn-wrap">
+      <button class="btn-voice" id="btnVoice" onclick="void(0)">🎤</button>
+      <div class="voice-status" id="voiceStatus">HOLD TO TALK</div>
+    </div>
+    <div class="transcript-box">
+      <div class="label">Conversation</div>
+      <div id="userTranscript" class="user-text"></div>
+      <div id="aiTranscript"   class="ai-text"></div>
     </div>
   </div>
+</div>
 
-  <div class="btn-row">
-    <button class="btn btn-flip"  id="btnFlip"  onclick="void(0)">⟳</button>
-    <button class="btn btn-start" id="btnStart" onclick="void(0)">▶ START</button>
-    <button class="btn btn-stop"  id="btnStop"  onclick="void(0)" style="display:none">■ STOP</button>
+<!-- ══════════ SETTINGS ══════════ -->
+<div class="page" id="page-settings">
+  <div class="settings-page">
+    <div class="settings-section">
+      <div class="settings-title">🔔 Haptic Feedback</div>
+      <div class="setting-row">
+        <div><div class="setting-label">Obstacle Warning</div><div class="setting-desc">Single short pulse</div></div>
+        <label class="toggle"><input type="checkbox" id="hapticWarning" checked><span class="toggle-slider"></span></label>
+      </div>
+      <div class="setting-row">
+        <div><div class="setting-label">Urgent Obstacle</div><div class="setting-desc">Three rapid pulses</div></div>
+        <label class="toggle"><input type="checkbox" id="hapticUrgent" checked><span class="toggle-slider"></span></label>
+      </div>
+      <div class="setting-row">
+        <div><div class="setting-label">Navigation Turn</div><div class="setting-desc">One long vibration</div></div>
+        <label class="toggle"><input type="checkbox" id="hapticNav" checked><span class="toggle-slider"></span></label>
+      </div>
+      <div class="haptic-demo">
+        <button class="haptic-btn" onclick="vibrate('single')">▶ Single</button>
+        <button class="haptic-btn" onclick="vibrate('triple')">▶ Triple</button>
+        <button class="haptic-btn" onclick="vibrate('long')">▶ Long</button>
+        <button class="haptic-btn" onclick="vibrate('nav')">▶ Nav Turn</button>
+      </div>
+    </div>
+    <div class="settings-section">
+      <div class="settings-title">🔊 Audio</div>
+      <div class="setting-row">
+        <div><div class="setting-label">Voice Alerts</div><div class="setting-desc">Speak obstacle descriptions</div></div>
+        <label class="toggle"><input type="checkbox" id="voiceAlerts" checked><span class="toggle-slider"></span></label>
+      </div>
+      <div class="setting-row">
+        <div><div class="setting-label">Silent When Safe</div><div class="setting-desc">Don't speak when path is clear</div></div>
+        <label class="toggle"><input type="checkbox" id="silentSafe" checked><span class="toggle-slider"></span></label>
+      </div>
+    </div>
+    <div class="settings-section">
+      <div class="settings-title">📡 Haptic Legend</div>
+      <div class="setting-row"><div><div class="setting-label">· Single pulse</div><div class="setting-desc">Warning — obstacle nearby</div></div></div>
+      <div class="setting-row"><div><div class="setting-label">··· Triple pulse</div><div class="setting-desc">Urgent — immediate hazard</div></div></div>
+      <div class="setting-row"><div><div class="setting-label">— Long pulse</div><div class="setting-desc">Navigation — turn coming up</div></div></div>
+      <div class="setting-row" style="border:none"><div><div class="setting-label">—— Extra long</div><div class="setting-desc">Destination reached</div></div></div>
+    </div>
   </div>
-  
-  <button class="btn btn-location" id="btnLocation" onclick="void(0)"> GET MY LOCATION</button>
-  <div id="locationDisplay" style="font-family:var(--mono);font-size:10px;color:var(--muted);text-align:center;min-height:16px;"></div>
-
-  <div class="frame-count" id="frameCount">FRAMES ANALYZED: 0</div>
 </div>
 
 <script>
-  const video     = document.getElementById('video');
-  const canvas    = document.getElementById('canvas');
-  const ctx       = canvas.getContext('2d');
-  const btnStart  = document.getElementById('btnStart');
-  const btnStop   = document.getElementById('btnStop');
-  const btnFlip   = document.getElementById('btnFlip');
-  const apiKeyEl  = document.getElementById('apiKey');
-  const alertBox  = document.getElementById('alertOverlay');
-  const alertType = document.getElementById('alertType');
-  const alertText = document.getElementById('alertText');
-  const alertTime = document.getElementById('alertTime');
-  const statusDot = document.getElementById('statusDot');
-  const statusTxt = document.getElementById('statusText');
-  const scanLine  = document.getElementById('scanLine');
-  const noCam     = document.getElementById('noCam');
-  const frameCountEl = document.getElementById('frameCount');
-
-  let stream = null;
-  let scanInterval = null;
-  let facingMode = 'environment';
-  let intervalMs = 2500;
-  let frameCount = 0;
-  
+  // ── iOS audio unlock ─────────────────────────────────────────
   document.addEventListener('touchstart', () => {
-  const ctx = new (window.AudioContext || window.webkitAudioContext)();
-  ctx.resume();
+    const actx = new (window.AudioContext || window.webkitAudioContext)();
+    actx.resume();
   }, { once: true });
 
+  // ── TABS ─────────────────────────────────────────────────────
+  document.querySelectorAll('.tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+      tab.classList.add('active');
+      document.getElementById('page-' + tab.dataset.tab).classList.add('active');
+    });
+  });
+
+  // ── STATE ────────────────────────────────────────────────────
+  // ⬇ Change this to your backend URL when deploying
+  const BACKEND    = 'http://localhost:8000';
+  let stream       = null;
+  let scanInterval = null;
+  let facingMode   = 'environment';
+  let intervalMs   = 2500;
+  let frameCount   = 0;
+  let userLocation = null;
+
+  // ── DOM ──────────────────────────────────────────────────────
+  const video           = document.getElementById('video');
+  const canvas          = document.getElementById('canvas');
+  const ctx             = canvas.getContext('2d');
+  const btnStart        = document.getElementById('btnStart');
+  const btnStop         = document.getElementById('btnStop');
+  const btnFlip         = document.getElementById('btnFlip');
+  const alertBox        = document.getElementById('alertOverlay');
+  const alertTypeEl     = document.getElementById('alertType');
+  const alertTextEl     = document.getElementById('alertText');
+  const alertTimeEl     = document.getElementById('alertTime');
+  const statusDot       = document.getElementById('statusDot');
+  const statusTxt       = document.getElementById('statusText');
+  const scanLine        = document.getElementById('scanLine');
+  const noCam           = document.getElementById('noCam');
+  const frameCountEl    = document.getElementById('frameCount');
+  const locationDisplay = document.getElementById('locationDisplay');
+
+  // ── INTERVAL PILLS ───────────────────────────────────────────
   document.querySelectorAll('.ipill').forEach(pill => {
     pill.addEventListener('click', () => {
       document.querySelectorAll('.ipill').forEach(p => p.classList.remove('active'));
@@ -226,6 +335,7 @@
     });
   });
 
+  // ── CAMERA ───────────────────────────────────────────────────
   async function startCamera() {
     try {
       if (stream) stream.getTracks().forEach(t => t.stop());
@@ -237,7 +347,7 @@
       noCam.style.display = 'none';
       return true;
     } catch (e) {
-      showAlert('ERROR', 'Camera access denied. Please allow camera permission.', 'urgent');
+      showAlert('urgent', 'Camera access denied. Please allow camera permission.');
       return false;
     }
   }
@@ -260,75 +370,102 @@
     return small.toDataURL('image/jpeg', 0.7).split(',')[1];
   }
 
-  const PROMPT = `You are the obstacle detection module for a smart cane used by a visually impaired person.
-Analyze this camera frame.
-
-Respond with ONLY a JSON object (no markdown):
-{
-  "level": "safe" | "warning" | "urgent",
-  "message": "one short sentence for the user (max 12 words)"
-}
-
-Level rules:
-- "urgent": stairs/step-down, vehicle, fast-moving person, glass door, low ceiling
-- "warning": person nearby, door, narrow passage, bicycle, dog
-- "safe": clear path ahead
-
-Be concise. The message will be spoken aloud.`;
-
-  async function analyzeFrame(b64, apiKey) {
-    const res = await fetch('https://api.openai.com/v1/chat/completions', {
+  // ── ANALYZE via backend (no API key needed on phone) ─────────
+  async function analyzeFrame(b64) {
+    const res = await fetch(`${BACKEND}/analyze`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
-      body: JSON.stringify({
-        model: 'gpt-4o',
-        max_tokens: 80,
-        messages: [{ role: 'user', content: [
-          { type: 'image_url', image_url: { url: `data:image/jpeg;base64,${b64}`, detail: 'low' } },
-          { type: 'text', text: PROMPT }
-        ]}]
-      })
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ image: b64 })
     });
-    if (!res.ok) throw new Error(`API ${res.status}`);
-    const data = await res.json();
-    const raw = data.choices[0].message.content.trim();
-    return JSON.parse(raw.replace(/```json|```/g, '').trim());
+    if (!res.ok) throw new Error(`Backend error ${res.status}`);
+    return await res.json();
   }
 
-  function showAlert(level, message, override) {
-    const l = override || level;
-    alertBox.className = `alert-overlay visible ${l}`;
-    alertType.textContent = l.toUpperCase();
-    alertText.textContent = message;
-    alertTime.textContent = new Date().toLocaleTimeString();
+  // ── HAPTIC ───────────────────────────────────────────────────
+  function vibrate(pattern) {
+    if (!navigator.vibrate) return;
+    const patterns = {
+      single:  [150],
+      triple:  [100, 80, 100, 80, 100],
+      long:    [600],
+      nav:     [400, 100, 400],
+      arrived: [1000]
+    };
+    navigator.vibrate(patterns[pattern] || [150]);
+  }
+
+  function hapticForLevel(level) {
+    if (level === 'urgent'  && document.getElementById('hapticUrgent').checked)  vibrate('triple');
+    if (level === 'warning' && document.getElementById('hapticWarning').checked) vibrate('single');
+  }
+
+  // ── TTS (ElevenLabs via backend, browser fallback) ───────────
+  async function speak(text) {
+    if (!document.getElementById('voiceAlerts').checked) return;
+    const elevenKey = document.getElementById('elevenKey').value.trim();
+    if (elevenKey) {
+      try {
+        const res = await fetch(`${BACKEND}/tts`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text, api_key: elevenKey })
+        });
+        if (res.ok) {
+          const blob = await res.blob();
+          new Audio(URL.createObjectURL(blob)).play();
+          return;
+        }
+      } catch {}
+    }
+    // browser fallback
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+      const utt = new SpeechSynthesisUtterance(text);
+      utt.rate = 1.1;
+      window.speechSynthesis.speak(utt);
+    }
+  }
+
+  // ── UI HELPERS ───────────────────────────────────────────────
+  function showAlert(level, message) {
+    alertBox.className      = `alert-overlay visible ${level}`;
+    alertTypeEl.textContent = level.toUpperCase();
+    alertTextEl.textContent = message;
+    alertTimeEl.textContent = new Date().toLocaleTimeString();
   }
 
   function setStatus(state) {
-    statusDot.className = 'status-dot ' + state;
     const labels = { '': 'OFFLINE', active: 'LIVE', scanning: 'SCANNING' };
-    statusTxt.className = 'status-text ' + state;
+    statusDot.className   = 'status-dot ' + state;
+    statusTxt.className   = 'status-text ' + state;
     statusTxt.textContent = labels[state] || state.toUpperCase();
   }
 
+  // ── SCAN LOOP ────────────────────────────────────────────────
   async function doScan() {
-    const apiKey = apiKeyEl.value.trim();
-    if (!apiKey) return;
     scanLine.classList.add('running');
     setStatus('scanning');
     try {
       const b64    = captureFrame();
-      const result = await analyzeFrame(b64, apiKey);
+      const result = await analyzeFrame(b64);
       frameCount++;
       frameCountEl.textContent = `FRAMES ANALYZED: ${frameCount}`;
       showAlert(result.level, result.message);
-      if ('speechSynthesis' in window && result.level !== 'safe') {
-        window.speechSynthesis.cancel();
-        const utt = new SpeechSynthesisUtterance(result.message);
-        utt.rate = 1.1;
-        window.speechSynthesis.speak(utt);
+      hapticForLevel(result.level);
+
+      // push to dashboard
+      if (userLocation) {
+        fetch(`${BACKEND}/location/update`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ...userLocation, level: result.level, message: result.message })
+        }).catch(() => {});
       }
+
+      const silent = document.getElementById('silentSafe').checked;
+      if (!(silent && result.level === 'safe')) speak(result.message);
     } catch (e) {
-      showAlert('error', `Error: ${e.message}`, 'urgent');
+      showAlert('urgent', `Error: ${e.message}`);
     } finally {
       scanLine.classList.remove('running');
       setStatus('active');
@@ -336,14 +473,12 @@ Be concise. The message will be spoken aloud.`;
   }
 
   btnStart.addEventListener('click', async () => {
-    const apiKey = apiKeyEl.value.trim();
-    if (!apiKey) { showAlert('error', 'Please enter your OpenAI API key first.', 'urgent'); return; }
     const ok = await startCamera();
     if (!ok) return;
     btnStart.style.display = 'none';
     btnStop.style.display  = 'flex';
     setStatus('active');
-    showAlert('safe', 'Camera active. Scanning for obstacles...', 'safe');
+    showAlert('safe', 'Camera active. Scanning for obstacles...');
     await doScan();
     scanInterval = setInterval(doScan, intervalMs);
   });
@@ -351,9 +486,8 @@ Be concise. The message will be spoken aloud.`;
   btnStop.addEventListener('click', () => {
     clearInterval(scanInterval);
     if (stream) stream.getTracks().forEach(t => t.stop());
-    stream = null;
-    video.srcObject = null;
-    noCam.style.display = 'flex';
+    stream = null; video.srcObject = null;
+    noCam.style.display    = 'flex';
     btnStop.style.display  = 'none';
     btnStart.style.display = 'flex';
     setStatus('');
@@ -361,63 +495,124 @@ Be concise. The message will be spoken aloud.`;
     scanLine.classList.remove('running');
     window.speechSynthesis?.cancel();
   });
-  const BACKEND = 'http://localhost:8000';
-let userLocation = null;
 
-async function getLocation() {
-  const display = document.getElementById('locationDisplay');
-  display.textContent = 'Getting location...';
-  
-  navigator.geolocation.getCurrentPosition(async (pos) => {
-    const lat = pos.coords.latitude;
-    const lng = pos.coords.longitude;
-    userLocation = { lat, lng };
-    
-    // 🔥 SEND TO DASHBOARD IMMEDIATELY
+  // ── LOCATION ────────────────────────────────────────────────
+  async function getLocation() {
+    locationDisplay.textContent = 'Getting location...';
+    if (!navigator.geolocation) { locationDisplay.textContent = 'Geolocation not supported.'; return; }
+    navigator.geolocation.getCurrentPosition(async (pos) => {
+      const { latitude: lat, longitude: lng } = pos.coords;
+      userLocation = { lat, lng };
+      try {
+        const res  = await fetch(`${BACKEND}/location/address?lat=${lat}&lng=${lng}`);
+        const data = await res.json();
+        locationDisplay.textContent = `📍 ${data.address}`;
+        // push to dashboard
+        fetch(`${BACKEND}/location/update`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ lat, lng, level: 'safe', message: 'Location acquired' })
+        }).catch(() => {});
+      } catch {
+        locationDisplay.textContent = `📍 ${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+      }
+    }, () => { locationDisplay.textContent = 'Location denied or unavailable.'; },
+    { enableHighAccuracy: true });
+  }
+
+  document.getElementById('btnLocation').addEventListener('click', getLocation);
+
+  async function searchNearby(query) {
+    if (!userLocation) { alert('Get location first'); return; }
+    const { lat, lng } = userLocation;
+    const res = await fetch(`${BACKEND}/places/nearby?lat=${lat}&lng=${lng}&query=${encodeURIComponent(query)}`);
+    return await res.json();
+  }
+
+  async function getDirections(destLat, destLng) {
+    if (!userLocation) return;
+    const { lat, lng } = userLocation;
+    const res = await fetch(`${BACKEND}/directions?origin_lat=${lat}&origin_lng=${lng}&dest_lat=${destLat}&dest_lng=${destLng}`);
+    return await res.json();
+  }
+
+  // ── VOICE ASSISTANT ─────────────────────────────────────────
+  const btnVoice       = document.getElementById('btnVoice');
+  const voiceStatus    = document.getElementById('voiceStatus');
+  const userTranscript = document.getElementById('userTranscript');
+  const aiTranscript   = document.getElementById('aiTranscript');
+  let recognition = null;
+  let isListening = false;
+
+  if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    recognition = new SR();
+    recognition.continuous = false; recognition.interimResults = false; recognition.lang = 'en-US';
+    recognition.onstart = () => {
+      isListening = true;
+      btnVoice.classList.add('listening');
+      voiceStatus.className = 'voice-status listening';
+      voiceStatus.textContent = 'LISTENING...';
+      vibrate('single');
+    };
+    recognition.onend = () => {
+      isListening = false;
+      btnVoice.classList.remove('listening');
+      voiceStatus.className = 'voice-status';
+      voiceStatus.textContent = 'HOLD TO TALK';
+    };
+    recognition.onresult = async (e) => {
+      const text = e.results[0][0].transcript;
+      userTranscript.textContent = `You: ${text}`;
+      aiTranscript.textContent   = 'Thinking...';
+      btnVoice.classList.add('speaking');
+      voiceStatus.className = 'voice-status speaking';
+      voiceStatus.textContent = 'RESPONDING...';
+      await handleVoiceCommand(text);
+      btnVoice.classList.remove('speaking');
+      voiceStatus.className = 'voice-status';
+      voiceStatus.textContent = 'HOLD TO TALK';
+    };
+    recognition.onerror = (e) => { voiceStatus.textContent = 'Error: ' + e.error; };
+  } else {
+    voiceStatus.textContent = 'Use Chrome for voice support.';
+  }
+
+  btnVoice.addEventListener('mousedown',  () => { if (recognition && !isListening) recognition.start(); });
+  btnVoice.addEventListener('touchstart', () => { if (recognition && !isListening) recognition.start(); }, { passive: true });
+  btnVoice.addEventListener('mouseup',    () => { if (recognition && isListening)  recognition.stop(); });
+  btnVoice.addEventListener('touchend',   () => { if (recognition && isListening)  recognition.stop(); });
+
+  // ── CLAUDE CHAT via backend ──────────────────────────────────
+  async function handleVoiceCommand(text) {
     try {
-      const res = await fetch(`${BACKEND}/location/update`, {
+      const res = await fetch(`${BACKEND}/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          lat, lng, 
-          level: 'safe',
-          message: 'Location acquired'
-        })
+        body: JSON.stringify({ message: text, location: userLocation })
       });
-      if (res.ok) {
-        display.textContent = `📍 SENT ${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+      const data  = await res.json();
+      const reply = data.reply;
+      aiTranscript.textContent = `SmartCane: ${reply}`;
+      speak(reply);
+
+      // navigation intent
+      if (/take me|navigate|go to|find/i.test(text) && userLocation) {
+        const match = text.match(/(?:to|find|navigate to|go to)\s+(.+)/i);
+        if (match) {
+          const places = await searchNearby(match[1]);
+          if (places?.places?.length) {
+            const opts = places.places.map((p, i) => `Option ${i+1}: ${p.name}`).join('. ');
+            const msg  = `Found ${places.places.length} options. ${opts}. Which do you prefer?`;
+            aiTranscript.textContent = `SmartCane: ${msg}`;
+            speak(msg);
+          }
+        }
       }
     } catch (e) {
-      display.textContent = `📍 ${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+      aiTranscript.textContent = `Error: ${e.message}`;
     }
-    
-    // Also get address for display
-    try {
-      const addrRes = await fetch(`${BACKEND}/location/address?lat=${lat}&lng=${lng}`);
-      const addrData = await addrRes.json();
-      display.textContent += ` | ${addrData.address}`;
-    } catch {}
-    
-  }, (err) => {
-    display.textContent = `Location error: ${err.message}`;
-  }, { enableHighAccuracy: true, timeout: 10000 });
-}
-
-async function searchNearby(query) {
-  if (!userLocation) { alert('Get location first'); return; }
-  const { lat, lng } = userLocation;
-  const res = await fetch(`${BACKEND}/places/nearby?lat=${lat}&lng=${lng}&query=${encodeURIComponent(query)}`);
-  return await res.json();
-}
-
-async function getDirections(destLat, destLng) {
-  if (!userLocation) return;
-  const { lat, lng } = userLocation;
-  const res = await fetch(`${BACKEND}/directions?origin_lat=${lat}&origin_lng=${lng}&dest_lat=${destLat}&dest_lng=${destLng}`);
-  return await res.json();
-}
-
-document.getElementById('btnLocation').addEventListener('click', getLocation);
+  }
 </script>
 </body>
 </html>
