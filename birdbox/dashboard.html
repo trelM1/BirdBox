@@ -1,0 +1,756 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SmartCane — Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:        #080c0c;
+    --surface:   #0d1a1a;
+    --surface2:  #111f1f;
+    --border:    #1a2e2e;
+    --teal:      #00e5c8;
+    --teal-dim:  rgba(0,229,200,0.10);
+    --teal-glow: rgba(0,229,200,0.35);
+    --amber:     #ffb020;
+    --red:       #ff4545;
+    --green:     #00e87a;
+    --text:      #d0eded;
+    --muted:     #4a7070;
+    --mono:      'Space Mono', monospace;
+    --display:   'Syne', sans-serif;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--display);
+    height: 100vh;
+    display: grid;
+    grid-template-rows: 56px 1fr;
+    grid-template-columns: 1fr 340px;
+    overflow: hidden;
+  }
+
+  /* scan line texture */
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background: repeating-linear-gradient(
+      0deg, transparent, transparent 3px,
+      rgba(0,0,0,0.06) 3px, rgba(0,0,0,0.06) 4px
+    );
+    pointer-events: none;
+    z-index: 999;
+  }
+
+  /* ── HEADER ── */
+  header {
+    grid-column: 1 / -1;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 24px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+    z-index: 10;
+  }
+
+  .logo {
+    font-size: 20px;
+    font-weight: 800;
+    letter-spacing: -.02em;
+    color: var(--teal);
+  }
+  .logo span { color: var(--text); }
+  .logo small {
+    font-family: var(--mono);
+    font-size: 10px;
+    font-weight: 400;
+    color: var(--muted);
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    margin-left: 10px;
+  }
+
+  .header-right {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+  }
+
+  .conn-status {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .conn-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--muted);
+    transition: all .3s;
+  }
+  .conn-dot.connected {
+    background: var(--green);
+    box-shadow: 0 0 8px rgba(0,232,122,.5);
+    animation: blink 2s infinite;
+  }
+  .conn-dot.phone-live {
+    background: var(--teal);
+    box-shadow: 0 0 8px var(--teal-glow);
+    animation: blink 1.5s infinite;
+  }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.4} }
+
+  .live-badge {
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    padding: 3px 8px;
+    border-radius: 2px;
+    background: var(--teal-dim);
+    border: 1px solid var(--teal);
+    color: var(--teal);
+    display: none;
+  }
+  .live-badge.visible { display: block; animation: blink 2s infinite; }
+
+  .clock {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--muted);
+    letter-spacing: .08em;
+  }
+
+  /* ── MAP ── */
+  #map-container {
+    grid-row: 2;
+    grid-column: 1;
+    position: relative;
+    background: #0a1414;
+    overflow: hidden;
+  }
+
+  #map { width: 100%; height: 100%; }
+
+  /* map overlay corners */
+  #map-container::before,
+  #map-container::after {
+    content: '';
+    position: absolute;
+    width: 40px; height: 40px;
+    border-color: var(--teal);
+    border-style: solid;
+    opacity: .5;
+    z-index: 5;
+    pointer-events: none;
+  }
+  #map-container::before { top: 12px; left: 12px; border-width: 2px 0 0 2px; }
+  #map-container::after  { bottom: 12px; right: 12px; border-width: 0 2px 2px 0; }
+
+  .map-info-bar {
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    background: linear-gradient(transparent, rgba(8,12,12,.9));
+    padding: 32px 16px 14px;
+    z-index: 5;
+    pointer-events: none;
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+  }
+  .map-address {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text);
+    letter-spacing: .05em;
+  }
+  .map-coords {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: .05em;
+    text-align: right;
+  }
+
+  /* no location placeholder */
+  .map-placeholder {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    background: var(--surface);
+  }
+  .map-placeholder .icon { font-size: 3rem; opacity: .3; }
+  .map-placeholder p {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--muted);
+    text-align: center;
+    line-height: 1.7;
+  }
+
+  /* ── SIDEBAR ── */
+  #sidebar {
+    grid-row: 2;
+    grid-column: 2;
+    border-left: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    background: var(--surface);
+  }
+
+  .sidebar-section {
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .sidebar-section.log-section {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    border-bottom: none;
+  }
+
+  .section-header {
+    padding: 12px 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .section-title {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: var(--teal);
+  }
+  .section-count {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--muted);
+  }
+
+  /* ── STATS ROW ── */
+  .stats-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 1px;
+    background: var(--border);
+    border-top: 1px solid var(--border);
+  }
+  .stat-box {
+    background: var(--surface2);
+    padding: 12px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+  .stat-val {
+    font-family: var(--mono);
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--text);
+    line-height: 1;
+  }
+  .stat-val.safe    { color: var(--green); }
+  .stat-val.warning { color: var(--amber); }
+  .stat-val.urgent  { color: var(--red);   }
+  .stat-label {
+    font-family: var(--mono);
+    font-size: 9px;
+    color: var(--muted);
+    letter-spacing: .1em;
+    text-transform: uppercase;
+  }
+
+  /* ── CURRENT STATUS ── */
+  .current-status {
+    padding: 12px 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .status-icon {
+    width: 40px; height: 40px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2rem;
+    flex-shrink: 0;
+    background: var(--teal-dim);
+    border: 1px solid var(--teal);
+    transition: all .3s;
+  }
+  .status-icon.warning { background: rgba(255,176,32,.12); border-color: var(--amber); }
+  .status-icon.urgent  { background: rgba(255,69,69,.12);  border-color: var(--red); animation: urgentPulse .6s infinite; }
+  @keyframes urgentPulse { 0%,100%{box-shadow:0 0 0 0 rgba(255,69,69,.4)} 50%{box-shadow:0 0 0 8px rgba(255,69,69,0)} }
+  .status-text-wrap { flex: 1; min-width: 0; }
+  .status-level {
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 2px;
+  }
+  .status-level.safe    { color: var(--green); }
+  .status-level.warning { color: var(--amber); }
+  .status-level.urgent  { color: var(--red);   }
+  .status-message {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* ── HAPTIC LEGEND ── */
+  .legend-grid {
+    padding: 10px 16px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+  }
+  .legend-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .legend-pattern {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--teal);
+    width: 60px;
+    flex-shrink: 0;
+    letter-spacing: .05em;
+  }
+  .legend-desc {
+    font-size: 12px;
+    color: var(--muted);
+  }
+
+  /* ── OBSTACLE LOG ── */
+  .log-scroll {
+    flex: 1;
+    overflow-y: auto;
+    padding: 8px 0;
+    min-height: 0;
+  }
+  .log-scroll::-webkit-scrollbar { width: 4px; }
+  .log-scroll::-webkit-scrollbar-track { background: transparent; }
+  .log-scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  .log-entry {
+    padding: 8px 16px;
+    border-left: 3px solid transparent;
+    transition: background .2s;
+    animation: log-in .2s ease;
+  }
+  @keyframes log-in { from { opacity: 0; transform: translateX(8px); } to { opacity: 1; transform: none; } }
+  .log-entry:hover { background: var(--surface2); }
+  .log-entry.safe    { border-left-color: var(--green); }
+  .log-entry.warning { border-left-color: var(--amber); }
+  .log-entry.urgent  { border-left-color: var(--red); }
+  .log-entry.info    { border-left-color: var(--teal); }
+
+  .log-row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .log-msg {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text);
+    flex: 1;
+    min-width: 0;
+  }
+  .log-time {
+    font-family: var(--mono);
+    font-size: 9px;
+    color: var(--muted);
+    flex-shrink: 0;
+  }
+  .log-level {
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    margin-top: 2px;
+  }
+  .log-entry.safe    .log-level { color: var(--green); }
+  .log-entry.warning .log-level { color: var(--amber); }
+  .log-entry.urgent  .log-level { color: var(--red);   }
+  .log-entry.info    .log-level { color: var(--teal);  }
+
+  .log-empty {
+    padding: 32px 16px;
+    text-align: center;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--muted);
+    line-height: 1.8;
+  }
+
+  /* connect input */
+  .connect-row {
+    padding: 12px 16px;
+    display: flex;
+    gap: 8px;
+    border-top: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .ws-input {
+    flex: 1;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 7px 10px;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text);
+    outline: none;
+    transition: border-color .2s;
+  }
+  .ws-input:focus { border-color: var(--teal); }
+  .btn-connect {
+    padding: 7px 14px;
+    background: var(--teal);
+    color: var(--bg);
+    border: none;
+    border-radius: 6px;
+    font-family: var(--display);
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all .15s;
+    white-space: nowrap;
+  }
+  .btn-connect:hover  { opacity: .85; }
+  .btn-connect.disconnect { background: transparent; color: var(--red); border: 1.5px solid var(--red); }
+</style>
+</head>
+<body>
+
+<!-- ── HEADER ── -->
+<header>
+  <div class="logo">
+    Smart<span>Cane</span>
+    <small>Dashboard</small>
+  </div>
+  <div class="header-right">
+    <span class="live-badge" id="liveBadge">● PHONE LIVE</span>
+    <div class="conn-status">
+      <div class="conn-dot" id="connDot"></div>
+      <span id="connLabel">DISCONNECTED</span>
+    </div>
+    <div class="clock" id="clock">--:--:--</div>
+  </div>
+</header>
+
+<!-- ── MAP ── -->
+<div id="map-container">
+  <div id="map"></div>
+  <div class="map-placeholder" id="mapPlaceholder">
+    <div class="icon">🗺️</div>
+    <p>Waiting for phone location...<br>Connect the WebSocket below<br>then tap GET MY LOCATION on the phone.</p>
+  </div>
+  <div class="map-info-bar">
+    <div class="map-address" id="mapAddress">—</div>
+    <div class="map-coords"  id="mapCoords">—</div>
+  </div>
+</div>
+
+<!-- ── SIDEBAR ── -->
+<div id="sidebar">
+
+  <!-- current status -->
+  <div class="sidebar-section">
+    <div class="section-header">
+      <span class="section-title">Current Status</span>
+    </div>
+    <div class="current-status">
+      <div class="status-icon" id="statusIcon">✅</div>
+      <div class="status-text-wrap">
+        <div class="status-level safe" id="currentLevel">SAFE</div>
+        <div class="status-message"   id="currentMessage">Waiting for data...</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- stats -->
+  <div class="sidebar-section">
+    <div class="stats-grid">
+      <div class="stat-box">
+        <div class="stat-val" id="statTotal">0</div>
+        <div class="stat-label">Scans</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-val warning" id="statWarning">0</div>
+        <div class="stat-label">Warnings</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-val urgent" id="statUrgent">0</div>
+        <div class="stat-label">Urgent</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- haptic legend -->
+  <div class="sidebar-section">
+    <div class="section-header">
+      <span class="section-title">📳 Haptic Legend</span>
+    </div>
+    <div class="legend-grid">
+      <div class="legend-row">
+        <span class="legend-pattern">·</span>
+        <span class="legend-desc">Single — obstacle warning</span>
+      </div>
+      <div class="legend-row">
+        <span class="legend-pattern">···</span>
+        <span class="legend-desc">Triple — urgent hazard</span>
+      </div>
+      <div class="legend-row">
+        <span class="legend-pattern">——</span>
+        <span class="legend-desc">Long — navigation turn</span>
+      </div>
+      <div class="legend-row">
+        <span class="legend-pattern">————</span>
+        <span class="legend-desc">Extra long — arrived</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- obstacle log -->
+  <div class="sidebar-section log-section">
+    <div class="section-header">
+      <span class="section-title">🗒 Obstacle Log</span>
+      <span class="section-count" id="logCount">0 events</span>
+    </div>
+    <div class="log-scroll" id="logScroll">
+      <div class="log-empty" id="logEmpty">
+        No events yet.<br>Start scanning on the phone.
+      </div>
+    </div>
+  </div>
+
+  <!-- ws connect -->
+  <div class="connect-row">
+    <input class="ws-input" id="wsUrl" value="ws://localhost:8000/ws" placeholder="ws://...">
+    <button class="btn-connect" id="btnConnect">Connect</button>
+  </div>
+
+</div>
+
+<script>
+  // ── CLOCK ────────────────────────────────────────────────────
+  function updateClock() {
+    document.getElementById('clock').textContent = new Date().toLocaleTimeString();
+  }
+  setInterval(updateClock, 1000);
+  updateClock();
+
+  // ── STATE ────────────────────────────────────────────────────
+  let ws         = null;
+  let map        = null;
+  let marker     = null;
+  let logCount   = 0;
+  let stats      = { total: 0, warning: 0, urgent: 0 };
+  let mapsLoaded = false;
+
+  // ── WEBSOCKET ────────────────────────────────────────────────
+  const connDot    = document.getElementById('connDot');
+  const connLabel  = document.getElementById('connLabel');
+  const liveBadge  = document.getElementById('liveBadge');
+  const btnConnect = document.getElementById('btnConnect');
+
+  function setConnected(connected) {
+    connDot.className  = 'conn-dot' + (connected ? ' connected' : '');
+    connLabel.textContent = connected ? 'CONNECTED' : 'DISCONNECTED';
+    btnConnect.textContent = connected ? 'Disconnect' : 'Connect';
+    btnConnect.className   = 'btn-connect' + (connected ? ' disconnect' : '');
+  }
+
+  btnConnect.addEventListener('click', () => {
+    if (ws) { ws.close(); return; }
+    const url = document.getElementById('wsUrl').value.trim();
+    try {
+      ws = new WebSocket(url);
+      ws.onopen    = () => { setConnected(true); addLog('info', 'Connected to SmartCane backend'); };
+      ws.onclose   = () => { setConnected(false); ws = null; liveBadge.classList.remove('visible'); addLog('info', 'Disconnected'); };
+      ws.onerror   = () => { addLog('urgent', 'WebSocket error — is the backend running?'); };
+      ws.onmessage = (e) => handleMessage(JSON.parse(e.data));
+    } catch {
+      addLog('urgent', 'Invalid WebSocket URL');
+    }
+  });
+
+  // ── HANDLE INCOMING DATA ─────────────────────────────────────
+  function handleMessage(data) {
+    if (data.type === 'location') {
+      liveBadge.classList.add('visible');
+      connDot.className = 'conn-dot phone-live';
+
+      // update map
+      updateMap(data.lat, data.lng);
+
+      // update status
+      updateStatus(data.level, data.message);
+
+      // update coords display
+      document.getElementById('mapCoords').textContent =
+        `${data.lat.toFixed(5)}, ${data.lng.toFixed(5)}`;
+
+      // add to log
+      if (data.message) addLog(data.level, data.message);
+
+      // update stats
+      stats.total++;
+      if (data.level === 'warning') stats.warning++;
+      if (data.level === 'urgent')  stats.urgent++;
+      document.getElementById('statTotal').textContent   = stats.total;
+      document.getElementById('statWarning').textContent = stats.warning;
+      document.getElementById('statUrgent').textContent  = stats.urgent;
+    }
+  }
+
+  // ── STATUS PANEL ────────────────────────────────────────────
+  const icons = { safe: '✅', warning: '⚠️', urgent: '🚨' };
+
+  function updateStatus(level, message) {
+    const icon    = document.getElementById('statusIcon');
+    const lvlEl   = document.getElementById('currentLevel');
+    const msgEl   = document.getElementById('currentMessage');
+    icon.className    = `status-icon ${level}`;
+    icon.textContent  = icons[level] || '📍';
+    lvlEl.className   = `status-level ${level}`;
+    lvlEl.textContent = level.toUpperCase();
+    msgEl.textContent = message || '—';
+  }
+
+  // ── OBSTACLE LOG ────────────────────────────────────────────
+  function addLog(level, message) {
+    const empty = document.getElementById('logEmpty');
+    if (empty) empty.remove();
+
+    logCount++;
+    document.getElementById('logCount').textContent = `${logCount} event${logCount !== 1 ? 's' : ''}`;
+
+    const scroll = document.getElementById('logScroll');
+    const entry  = document.createElement('div');
+    entry.className = `log-entry ${level}`;
+    entry.innerHTML = `
+      <div class="log-row">
+        <div class="log-msg">${message}</div>
+        <div class="log-time">${new Date().toLocaleTimeString()}</div>
+      </div>
+      <div class="log-level">${level.toUpperCase()}</div>
+    `;
+    scroll.insertBefore(entry, scroll.firstChild);  // newest on top
+
+    // cap log at 100 entries
+    while (scroll.children.length > 100) scroll.removeChild(scroll.lastChild);
+  }
+
+  // ── GOOGLE MAPS ──────────────────────────────────────────────
+  function initMap() {
+    mapsLoaded = true;
+    // map init is deferred until we get first location
+  }
+
+  function updateMap(lat, lng) {
+    const placeholder = document.getElementById('mapPlaceholder');
+    if (placeholder) placeholder.style.display = 'none';
+
+    if (!mapsLoaded) return;
+
+    if (!map) {
+      map = new google.maps.Map(document.getElementById('map'), {
+        center: { lat, lng },
+        zoom: 17,
+        mapId: 'smartcane_dashboard',
+        disableDefaultUI: false,
+        styles: [
+          { elementType: 'geometry',        stylers: [{ color: '#0a1414' }] },
+          { elementType: 'labels.text.fill',stylers: [{ color: '#4a7070' }] },
+          { elementType: 'labels.text.stroke',stylers:[{ color: '#080c0c' }] },
+          { featureType: 'road',             elementType: 'geometry', stylers: [{ color: '#1a2e2e' }] },
+          { featureType: 'road',             elementType: 'geometry.stroke', stylers: [{ color: '#0d1a1a' }] },
+          { featureType: 'road.highway',     elementType: 'geometry', stylers: [{ color: '#1f3d3d' }] },
+          { featureType: 'water',            elementType: 'geometry', stylers: [{ color: '#050a0a' }] },
+          { featureType: 'poi',              elementType: 'geometry', stylers: [{ color: '#0d1a1a' }] },
+          { featureType: 'transit',          elementType: 'geometry', stylers: [{ color: '#0d1a1a' }] },
+        ]
+      });
+
+      // custom teal marker
+      marker = new google.maps.Marker({
+        position: { lat, lng },
+        map,
+        title: 'SmartCane User',
+        icon: {
+          path: google.maps.SymbolPath.CIRCLE,
+          scale: 10,
+          fillColor: '#00e5c8',
+          fillOpacity: 1,
+          strokeColor: '#080c0c',
+          strokeWeight: 2,
+        }
+      });
+
+      // accuracy circle
+      new google.maps.Circle({
+        map,
+        center: { lat, lng },
+        radius: 15,
+        fillColor: '#00e5c8',
+        fillOpacity: .08,
+        strokeColor: '#00e5c8',
+        strokeOpacity: .3,
+        strokeWeight: 1,
+      });
+
+    } else {
+      const pos = { lat, lng };
+      marker.setPosition(pos);
+      map.panTo(pos);
+    }
+
+    // reverse geocode for address label
+    const geocoder = new google.maps.Geocoder();
+    geocoder.geocode({ location: { lat, lng } }, (results, status) => {
+      if (status === 'OK' && results[0]) {
+        document.getElementById('mapAddress').textContent = results[0].formatted_address;
+      }
+    });
+  }
+
+  // ── LOAD GOOGLE MAPS ────────────────────────────────────────
+  // Replace YOUR_GOOGLE_MAPS_KEY below with your actual key
+  const MAPS_KEY = 'YOUR_GOOGLE_MAPS_KEY';
+  const script   = document.createElement('script');
+  script.src     = `https://maps.googleapis.com/maps/api/js?key=${MAPS_KEY}&callback=initMap`;
+  script.async   = true;
+  document.head.appendChild(script);
+  window.initMap = initMap;
+</script>
+</body>
+</html>
