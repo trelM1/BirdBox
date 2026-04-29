@@ -335,18 +335,32 @@
   document.getElementById('btnStopNav').addEventListener('click', stopNavigation);
 
   // ── LOCATION ────────────────────────────────────────────────
+  let geoWatchId = null;
+
   function initLocation() {
-    if (!navigator.geolocation) return;
-    navigator.geolocation.watchPosition(
+    if (!navigator.geolocation) {
+      showAlert('warning', 'GPS not supported on this device.');
+      return;
+    }
+    if (geoWatchId !== null) return; // already watching
+    geoWatchId = navigator.geolocation.watchPosition(
       (pos) => {
         userLocation = { lat: pos.coords.latitude, lng: pos.coords.longitude };
         if (navActive) checkNavProgress();
       },
-      () => {},
-      { enableHighAccuracy: true, maximumAge: 2000, timeout: 10000 }
+      (err) => {
+        const msgs = {
+          1: 'Location permission denied. Enable GPS in browser settings.',
+          2: 'GPS signal unavailable.',
+          3: 'GPS timed out. Retrying...'
+        };
+        showAlert('warning', msgs[err.code] || 'GPS error.');
+        // retry after a delay for timeout errors
+        if (err.code === 3) { geoWatchId = null; setTimeout(initLocation, 3000); }
+      },
+      { enableHighAccuracy: true, maximumAge: 2000, timeout: 15000 }
     );
   }
-  initLocation();
 
   // ── HAVERSINE (client-side for nav) ──────────────────────────
   function haversine(lat1, lng1, lat2, lng2) {
@@ -507,6 +521,7 @@
   btnStart.addEventListener('click', async () => {
     const ok = await startCamera();
     if (!ok) return;
+    initLocation(); // start GPS after user gesture — required by mobile browsers
     btnStart.style.display = 'none';
     btnStop.style.display  = 'flex';
     setStatus('active', 'LIVE');
@@ -683,10 +698,24 @@
 
     // ── GENERAL CHAT ───────────────────────────────────────────
     try {
+      // resolve address for Claude so it can give useful location-aware answers
+      let locationContext = null;
+      if (userLocation) {
+        try {
+          const geo = await fetch(
+            `${BACKEND}/location/address?lat=${userLocation.lat}&lng=${userLocation.lng}`,
+            { headers: { 'ngrok-skip-browser-warning': 'true' } }
+          );
+          const geoData = await geo.json();
+          locationContext = { ...userLocation, address: geoData.address };
+        } catch {
+          locationContext = userLocation;
+        }
+      }
       const res = await fetch(`${BACKEND}/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' },
-        body: JSON.stringify({ message: text, location: userLocation })
+        body: JSON.stringify({ message: text, location: locationContext })
       });
       const data  = await res.json();
       const reply = data.reply;
