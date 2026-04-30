@@ -296,6 +296,7 @@ Be very concise — 1-2 sentences max.{location_str}""",
 # ── 7. Chat streaming — frontend calls this, key stays on server ──
 class ChatStreamRequest(BaseModel):
     message:  str
+    history:  Optional[list] = []
     location: Optional[dict] = None
 
 @app.post("/chat/stream")
@@ -310,13 +311,23 @@ async def chat_stream(req: ChatStreamRequest):
         elif lat and lng:
             location_str = f"\nUser GPS: {lat}, {lng}"
 
+    # build messages array: history + current message
+    messages = []
+    if req.history:
+        for turn in req.history:
+            role    = turn.get("role", "user")
+            content = turn.get("content", "")
+            if role in ("user", "assistant") and content:
+                messages.append({"role": role, "content": content})
+    messages.append({"role": "user", "content": req.message})
+
     async def generate():
         client = anthropic.Anthropic(api_key=ANTHROPIC_KEY)
         with client.messages.stream(
             model="claude-haiku-4-5-20251001",
-            max_tokens=80,
-            system=f"You are BirdBox, a voice assistant for a visually impaired user walking outdoors. Be very concise — 1-2 sentences max. IMPORTANT: if the user wants to navigate somewhere, say 'Starting navigation to [place name]' so the app can handle it.{location_str}",
-            messages=[{"role": "user", "content": req.message}]
+            max_tokens=120,
+            system=f"You are BirdBox, a voice assistant for a visually impaired user walking outdoors. Be concise — 1-3 sentences max. Remember context from earlier in this conversation. IMPORTANT: if the user wants to navigate somewhere, say 'Starting navigation to [place name]' so the app can handle it.{location_str}",
+            messages=messages
         ) as stream:
             for text in stream.text_stream:
                 chunk = {"type": "content_block_delta", "delta": {"text": text}}

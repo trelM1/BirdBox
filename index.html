@@ -332,6 +332,7 @@ let lastAnnouncedStep = -1;
 let geoWatchId        = null;
 let cachedAddress     = null;
 const hapticPrefs     = { warning: 'single', urgent: 'triple', nav: 'nav' };
+const conversationHistory = []; // keeps last N turns for context
 
 // ── DOM ───────────────────────────────────────────────────────
 const video          = document.getElementById('video');
@@ -537,7 +538,7 @@ function processQueue() {
   if (!speakQueue.length) { isSpeaking=false; return; }
   isSpeaking = true;
   const {text, resolve} = speakQueue.shift();
-  const voice = VOICES.find(v => v.id === selectedVoiceId) || VOICES[2];
+  const voice = VOICES.find(v => v.id === selectedVoiceId) || VOICES[1]; // default Lily
   fetch(`${BACKEND}/tts/stream`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' },
@@ -549,17 +550,21 @@ function processQueue() {
     const url   = URL.createObjectURL(blob);
     const audio = new Audio(url);
     audio.volume = 1.0;
-    // boost gain beyond default using Web Audio API
+    // use a fresh AudioContext per element — reusing one causes createMediaElementSource to throw
     try {
-      const actx   = getHapticCtx();
+      const actx   = new (window.AudioContext || window.webkitAudioContext)();
       const source = actx.createMediaElementSource(audio);
       const gain   = actx.createGain();
-      gain.gain.value = 3.0; // 3x amplification
+      gain.gain.value = 3.0;
       source.connect(gain);
       gain.connect(actx.destination);
-    } catch(e) { console.warn('Gain boost unavailable:', e); }
-    audio.onended = () => { resolve(); processQueue(); URL.revokeObjectURL(url); };
-    audio.onerror = () => { speakBrowser(text, () => { resolve(); processQueue(); }); };
+      audio.onended = () => { resolve(); processQueue(); URL.revokeObjectURL(url); actx.close(); };
+      audio.onerror = () => { actx.close(); speakBrowser(text, () => { resolve(); processQueue(); }); };
+    } catch(e) {
+      console.warn('Gain boost failed, playing normally:', e);
+      audio.onended = () => { resolve(); processQueue(); URL.revokeObjectURL(url); };
+      audio.onerror = () => { speakBrowser(text, () => { resolve(); processQueue(); }); };
+    }
     audio.play().catch(() => speakBrowser(text, () => { resolve(); processQueue(); }));
   }).catch(() => speakBrowser(text, () => { resolve(); processQueue(); }));
 }
@@ -694,13 +699,19 @@ async function handleVoiceCommand(text) {
   // stop nav
   if (/stop|cancel|end navigation/i.test(lower)) { stopNavigation(); await speak('Navigation stopped.'); return; }
 
-  // general chat — routed through backend, no key in frontend
+  // general chat — routed through backend with conversation history
   try {
+    // add user message to history
+    conversationHistory.push({ role: 'user', content: text });
+    // keep last 10 turns max to avoid token bloat
+    if (conversationHistory.length > 10) conversationHistory.splice(0, 2);
+
     const res=await fetch(`${BACKEND}/chat/stream`,{
       method:'POST',
       headers:{'Content-Type':'application/json','ngrok-skip-browser-warning':'true'},
       body:JSON.stringify({
         message: text,
+        history: conversationHistory.slice(0, -1), // everything before current message
         location: userLocation ? { lat: userLocation.lat, lng: userLocation.lng, address: cachedAddress } : null
       })
     });
@@ -720,13 +731,15 @@ async function handleVoiceCommand(text) {
       }
     }
     if (reply) {
+      // save assistant reply to history
+      conversationHistory.push({ role: 'assistant', content: reply.trim() });
       const navTrigger=reply.match(/starting navigation to (.+)/i);
       if(navTrigger&&userLocation){const q=navTrigger[1].replace(/[.!?]$/,'').trim();await speak(reply.trim());setTimeout(async()=>{await handleVoiceCommand(`navigate to ${q}`)},300);return;}
       await speak(reply.trim());
       fetch(`${BACKEND}/chat`,{method:'POST',headers:{'Content-Type':'application/json','ngrok-skip-browser-warning':'true'},body:JSON.stringify({message:text,location:null,log_only:true,ai_response:reply.trim()})}).catch(()=>{});
       if(reply.trim().endsWith('?')){setTimeout(()=>{if(!commandMode)listenForSelection();},500);return;}
     }
-  } catch { await speak('Sorry, I could not connect to the server.'); }
+  } catch(e) { console.error('Chat error:', e); await speak('Sorry, I could not connect to the server.'); }
 }
 
 function listenForSelection() {
