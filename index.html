@@ -209,9 +209,9 @@
     <div class="interval-row">
       <span class="interval-label">Scan every</span>
       <div class="interval-pills">
-        <div class="ipill" data-val="1500">1.5s</div>
-        <div class="ipill active" data-val="2500">2.5s</div>
-        <div class="ipill" data-val="4000">4s</div>
+        <div class="ipill" data-val="2000">2s</div>
+        <div class="ipill active" data-val="4000">4s</div>
+        <div class="ipill" data-val="7000">7s</div>
       </div>
     </div>
   </div>
@@ -480,37 +480,54 @@
     if (level === 'warning' && document.getElementById('hapticWarning').checked) vibrate('single');
   }
 
-  // ── TTS ──────────────────────────────────────────────────────
+  let isSpeaking = false;
+  const speakQueue = [];
+
   function speak(text) {
     return new Promise((resolve) => {
-      const elevenKey = document.getElementById('elevenKey').value.trim();
-      const useEleven = document.getElementById('useEleven').checked;
-      if (useEleven && elevenKey) {
-        fetch(`${BACKEND}/tts`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' },
-          body: JSON.stringify({ text, api_key: elevenKey })
-        }).then(res => {
-          if (res.ok) return res.blob();
-          throw new Error();
-        }).then(blob => {
-          const audio = new Audio(URL.createObjectURL(blob));
-          audio.onended = resolve;
-          audio.play();
-        }).catch(() => speakBrowser(text, resolve));
-      } else {
-        speakBrowser(text, resolve);
-      }
+      speakQueue.push({ text, resolve });
+      if (!isSpeaking) processQueue();
     });
+  }
+
+  function processQueue() {
+    if (!speakQueue.length) { isSpeaking = false; return; }
+    isSpeaking = true;
+    const { text, resolve } = speakQueue.shift();
+    const elevenKey = document.getElementById('elevenKey').value.trim();
+    const useEleven = document.getElementById('useEleven').checked;
+    if (useEleven && elevenKey) {
+      fetch(`${BACKEND}/tts`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' },
+        body: JSON.stringify({ text, api_key: elevenKey })
+      }).then(res => {
+        if (res.ok) return res.blob();
+        throw new Error();
+      }).then(blob => {
+        const audio = new Audio(URL.createObjectURL(blob));
+        audio.onended = () => { resolve(); processQueue(); };
+        audio.play();
+      }).catch(() => speakBrowser(text, () => { resolve(); processQueue(); }));
+    } else {
+      speakBrowser(text, () => { resolve(); processQueue(); });
+    }
   }
 
   function speakBrowser(text, callback) {
     if (!window.speechSynthesis) { callback?.(); return; }
-    window.speechSynthesis.cancel();
+    // don't cancel — let current sentence finish unless commanded
     const utt = new SpeechSynthesisUtterance(text);
     utt.rate = 1.0; utt.volume = 1.0;
     utt.onend = () => callback?.();
+    utt.onerror = () => callback?.();
     window.speechSynthesis.speak(utt);
+  }
+
+  function cancelSpeech() {
+    speakQueue.length = 0; // clear queue
+    isSpeaking = false;
+    window.speechSynthesis?.cancel();
   }
 
   // ── UI ───────────────────────────────────────────────────────
@@ -601,7 +618,7 @@
     setStatus('', 'OFFLINE');
     setGlow('idle');
     alertBox.className = '';
-    window.speechSynthesis?.cancel();
+    cancelSpeech();
   });
 
   // ── WAKE WORD ─────────────────────────────────────────────────
@@ -658,7 +675,7 @@
   function activateCommand() {
     commandMode = true;
     if (scanAbort) { scanAbort.abort(); scanAbort = null; }
-    window.speechSynthesis?.cancel();
+    cancelSpeech();
     vibrate('single'); playChime();
     setGlow('listening'); setStatus('listening', 'LISTENING');
     voiceBox.classList.add('visible');
@@ -700,7 +717,7 @@
     const lower = text.toLowerCase();
 
     // ── NAVIGATION INTENT ──────────────────────────────────────
-    const navMatch = lower.match(/(?:take me to|navigate to|go to|directions to|find|i want to go to)\s+(.+)/i);
+    const navMatch = lower.match(/(?:take me to|navigate to|go to|directions to|direct me to|find|get me to|i want to go to|how do i get to)\s+(.+)/i);
     if (navMatch && userLocation) {
       const query = navMatch[1].trim();
       aiTranscript.textContent = `BirdBox: Searching for ${query} nearby...`;

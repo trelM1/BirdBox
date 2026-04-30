@@ -254,9 +254,10 @@ async def analyze_image(req: VisionRequest):
             {"type": "text", "text": """Obstacle detection for a smart cane. Analyze this camera frame.
 Respond ONLY with JSON (no markdown):
 {"level": "safe"|"warning"|"urgent", "message": "max 10 words"}
-- urgent: stairs, vehicle, person rushing at you, glass door, low ceiling, road
-- warning: person nearby, door, bicycle, dog, curb, crosswalk
-- safe: clear path"""}
+- urgent: stairs, vehicle moving toward you, glass door, low ceiling, road crossing, large object blocking path
+- warning: object close in path, bicycle, dog, curb, construction
+- safe: clear path, people standing still nearby (bystanders are NOT obstacles), open space
+Important: people simply walking nearby or standing around are NOT obstacles — only warn if someone is directly blocking the path or rushing toward the user."""}
         ]}]
     )
     raw = message.content[0].text.strip()
