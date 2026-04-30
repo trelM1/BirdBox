@@ -469,21 +469,36 @@ document.querySelectorAll('.haptic-option[data-pattern]').forEach(opt => {
 });
 
 // ── LOCATION ──────────────────────────────────────────────────
+async function updateAddress(lat, lng) {
+  try {
+    const geo = await fetch(`${BACKEND}/location/address?lat=${lat}&lng=${lng}`, { headers: { 'ngrok-skip-browser-warning': 'true' } });
+    const geoData = await geo.json();
+    if (geoData.address && geoData.address !== 'Unknown location') {
+      cachedAddress = geoData.address;
+    } else {
+      cachedAddress = `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+    }
+  } catch { cachedAddress = `${lat.toFixed(4)}, ${lng.toFixed(4)}`; }
+  return cachedAddress;
+}
+
 function initLocation() {
   if (!navigator.geolocation) { showAlert('warning', 'GPS not supported.'); return; }
   if (geoWatchId !== null) return;
   navigator.geolocation.getCurrentPosition(async (pos) => {
     userLocation = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-    try {
-      const geo = await fetch(`${BACKEND}/location/address?lat=${userLocation.lat}&lng=${userLocation.lng}`, { headers: { 'ngrok-skip-browser-warning': 'true' } });
-      const geoData = await geo.json();
-      cachedAddress = (geoData.address && geoData.address !== 'Unknown location') ? geoData.address : `${pos.coords.latitude.toFixed(4)}, ${pos.coords.longitude.toFixed(4)}`;
-    } catch { cachedAddress = `${pos.coords.latitude.toFixed(4)}, ${pos.coords.longitude.toFixed(4)}`; }
-    showAlert('safe', `📍 ${cachedAddress}`);
+    const addr = await updateAddress(userLocation.lat, userLocation.lng);
+    showAlert('safe', `📍 ${addr}`);
     geoWatchId = navigator.geolocation.watchPosition(
-      (pos) => { userLocation = { lat: pos.coords.latitude, lng: pos.coords.longitude }; if (navActive) checkNavProgress(); },
+      async (pos) => {
+        const newLat = pos.coords.latitude, newLng = pos.coords.longitude;
+        userLocation = { lat: newLat, lng: newLng };
+        // update address every time GPS moves
+        await updateAddress(newLat, newLng);
+        if (navActive) checkNavProgress();
+      },
       (err) => { const m={1:'Location denied.',2:'GPS unavailable.',3:'GPS timed out.'}; showAlert('warning', m[err.code]||'GPS error.'); if(err.code===3){geoWatchId=null;setTimeout(initLocation,4000);} },
-      { enableHighAccuracy: true, maximumAge: 2000, timeout: 20000 }
+      { enableHighAccuracy: true, maximumAge: 0, timeout: 20000 }
     );
   },
   (err) => { const m={1:'Location denied.',2:'GPS unavailable.',3:'GPS timed out.'}; showAlert('warning', m[err.code]||'GPS failed.'); if(err.code===3)setTimeout(initLocation,4000); },
@@ -538,7 +553,7 @@ function processQueue() {
   if (!speakQueue.length) { isSpeaking=false; return; }
   isSpeaking = true;
   const {text, resolve} = speakQueue.shift();
-  const voice = VOICES.find(v => v.id === selectedVoiceId) || VOICES[1]; // default Lily
+  const voice = VOICES.find(v => v.id === selectedVoiceId) || VOICES[0];
   fetch(`${BACKEND}/tts/stream`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' },
