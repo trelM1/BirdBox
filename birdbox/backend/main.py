@@ -401,7 +401,7 @@ async def get_analytics():
         return {"level_counts":level_counts,"recent_events":recent,"voice_commands":voice_count,"top_obstacles":top_obstacles}
     except Exception as e:
         return {"error": str(e)}
-
+    
 
 # ── 11. WebSocket ─────────────────────────────────────────────
 @app.websocket("/ws")
