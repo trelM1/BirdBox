@@ -717,8 +717,7 @@
     const lower = text.toLowerCase();
 
     // ── NAVIGATION INTENT ──────────────────────────────────────
-    const navMatch = lower.match(/(?:take me to|navigate to|go to|directions to|direct me to|find|get me to|i want to go to|how do i get to)\s+(.+)/i);
-    if (navMatch && userLocation) {
+    const navMatch = lower.match(/(?:take me to|navigate to|go to|directions to|direct me to|bring me to|find|get me to|walk me to|lead me to|i want to go to|how do i get to)\s+(.+)/i);    if (navMatch && userLocation) {
       const query = navMatch[1].trim();
       aiTranscript.textContent = `BirdBox: Searching for ${query} nearby...`;
       await speak(`Searching for ${query} nearby.`);
@@ -789,12 +788,11 @@
           model: 'claude-haiku-4-5-20251001',
           max_tokens: 80,
           stream: true,
-          system: `You are BirdBox, a voice assistant for a visually impaired user walking outdoors. Be very concise — 1-2 sentences max. Help with navigation, obstacles, and general questions.${locationStr}`,
+          system: `You are BirdBox, a voice assistant for a visually impaired user walking outdoors. Be very concise — 1-2 sentences max. Help with obstacles and general questions. IMPORTANT: if the user wants to navigate somewhere, DO NOT give them directions yourself — just say "Starting navigation to [place name]" so the app can handle it.${locationStr}`,
           messages: [{ role: 'user', content: text }]
         })
       });
 
-      // stream tokens and speak as soon as we have a full sentence
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
       let reply = '';
@@ -818,19 +816,29 @@
       }
 
       if (reply) {
+        // detect if Claude said "Starting navigation to X" and trigger nav flow
+        const navTrigger = reply.match(/starting navigation to (.+)/i);
+        if (navTrigger && userLocation) {
+          const query = navTrigger[1].replace(/[.!?]$/, '').trim();
+          await speak(reply.trim());
+          // trigger actual navigation
+          setTimeout(async () => {
+            await handleVoiceCommand(`navigate to ${query}`);
+          }, 300);
+          return;
+        }
+
         await speak(reply.trim());
-        // log to Snowflake via backend
         fetch(`${BACKEND}/chat`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' },
           body: JSON.stringify({ message: text, location: null, log_only: true, ai_response: reply.trim() })
         }).catch(() => {});
-        // if AI asked a question, automatically go back to listening
         if (reply.trim().endsWith('?')) {
           setTimeout(() => {
             if (!commandMode) listenForSelection();
           }, 500);
-          return; // don't call endCommand yet — listenForSelection will handle it
+          return;
         }
       }
     } catch {
