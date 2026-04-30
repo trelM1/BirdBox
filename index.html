@@ -125,6 +125,11 @@
   .haptic-demo { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
   .haptic-btn { padding: 10px 16px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg); color: var(--text); font-family: var(--mono); font-size: 11px; cursor: pointer; }
   .haptic-btn:active { background: var(--teal-dim); border-color: var(--teal); }
+  .haptic-picker { display: flex; gap: 6px; flex-wrap: wrap; margin: 6px 0 4px; }
+  .haptic-option { padding: 7px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg); color: var(--muted); font-family: var(--mono); font-size: 11px; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 2px; transition: all .15s; user-select: none; -webkit-user-select: none; }
+  .haptic-option:active { transform: scale(.96); }
+  .haptic-option.active { background: var(--teal-dim); border-color: var(--teal); color: var(--teal); }
+  .haptic-hint { font-size: 9px; color: var(--muted); letter-spacing: .05em; }
   .toggle { position: relative; width: 50px; height: 28px; flex-shrink: 0; cursor: pointer; }
   .toggle input { opacity: 0; width: 0; height: 0; }
   .toggle-slider { position: absolute; inset: 0; background: var(--border); border-radius: 99px; transition: .2s; }
@@ -217,23 +222,52 @@
   </div>
   <div class="settings-section">
     <div class="section-label">🔔 Haptic Feedback</div>
+
+    <!-- Warning -->
     <div class="setting-row">
-      <div><div class="setting-label-text">Obstacle Warning</div><div class="setting-desc">Single short pulse</div></div>
+      <div><div class="setting-label-text">Obstacle Warning</div><div class="setting-desc">Vibration when warning detected</div></div>
       <label class="toggle"><input type="checkbox" id="hapticWarning" checked><span class="toggle-slider"></span></label>
     </div>
-    <div class="setting-row">
-      <div><div class="setting-label-text">Urgent Obstacle</div><div class="setting-desc">Three rapid pulses</div></div>
+    <div class="haptic-picker" id="pickerWarning">
+      <div class="haptic-option active" data-target="warning" data-pattern="single">· Single<span class="haptic-hint">150ms</span></div>
+      <div class="haptic-option" data-target="warning" data-pattern="double">·· Double<span class="haptic-hint">2 pulses</span></div>
+      <div class="haptic-option" data-target="warning" data-pattern="long">— Long<span class="haptic-hint">600ms</span></div>
+    </div>
+
+    <!-- Urgent -->
+    <div class="setting-row" style="margin-top:10px">
+      <div><div class="setting-label-text">Urgent Obstacle</div><div class="setting-desc">Vibration for immediate hazard</div></div>
       <label class="toggle"><input type="checkbox" id="hapticUrgent" checked><span class="toggle-slider"></span></label>
     </div>
-    <div class="setting-row">
-      <div><div class="setting-label-text">Navigation Turn</div><div class="setting-desc">One long vibration</div></div>
+    <div class="haptic-picker" id="pickerUrgent">
+      <div class="haptic-option" data-target="urgent" data-pattern="single">· Single<span class="haptic-hint">150ms</span></div>
+      <div class="haptic-option" data-target="urgent" data-pattern="double">·· Double<span class="haptic-hint">2 pulses</span></div>
+      <div class="haptic-option active" data-target="urgent" data-pattern="triple">··· Triple<span class="haptic-hint">3 pulses</span></div>
+      <div class="haptic-option" data-target="urgent" data-pattern="long">— Long<span class="haptic-hint">600ms</span></div>
+    </div>
+
+    <!-- Nav -->
+    <div class="setting-row" style="margin-top:10px">
+      <div><div class="setting-label-text">Navigation Turn</div><div class="setting-desc">Vibration at each turn</div></div>
       <label class="toggle"><input type="checkbox" id="hapticNav" checked><span class="toggle-slider"></span></label>
     </div>
-    <div class="haptic-demo">
-      <button class="haptic-btn" onclick="vibrate('single')">▶ Single</button>
-      <button class="haptic-btn" onclick="vibrate('triple')">▶ Triple</button>
-      <button class="haptic-btn" onclick="vibrate('long')">▶ Long</button>
-      <button class="haptic-btn" onclick="vibrate('nav')">▶ Nav</button>
+    <div class="haptic-picker" id="pickerNav">
+      <div class="haptic-option" data-target="nav" data-pattern="single">· Single<span class="haptic-hint">150ms</span></div>
+      <div class="haptic-option" data-target="nav" data-pattern="triple">··· Triple<span class="haptic-hint">3 pulses</span></div>
+      <div class="haptic-option active" data-target="nav" data-pattern="nav">— — Nav<span class="haptic-hint">2 long</span></div>
+      <div class="haptic-option" data-target="nav" data-pattern="long">—— Long<span class="haptic-hint">600ms</span></div>
+    </div>
+
+    <!-- Test buttons -->
+    <div style="margin-top:14px">
+      <div class="setting-label-text" style="font-size:12px;margin-bottom:8px">Test Patterns</div>
+      <div class="haptic-demo">
+        <button class="haptic-btn" id="testSingle">· Single</button>
+        <button class="haptic-btn" id="testDouble">·· Double</button>
+        <button class="haptic-btn" id="testTriple">··· Triple</button>
+        <button class="haptic-btn" id="testLong">— Long</button>
+        <button class="haptic-btn" id="testNav">— — Nav</button>
+      </div>
     </div>
   </div>
   <div class="settings-section">
@@ -252,13 +286,6 @@
     </div>
     <input class="settings-input" id="elevenKey" type="password" placeholder="ElevenLabs API key (optional)">
     <input class="settings-input" id="anthropicKey" type="password" placeholder="Anthropic API key (required for voice)" style="margin-top:8px">
-  </div>
-  <div class="settings-section">
-    <div class="section-label">📡 Haptic Legend</div>
-    <div class="legend-row"><div class="legend-pattern">·</div><div class="legend-desc">Warning — obstacle nearby</div></div>
-    <div class="legend-row"><div class="legend-pattern">···</div><div class="legend-desc">Urgent — immediate hazard</div></div>
-    <div class="legend-row"><div class="legend-pattern">——</div><div class="legend-desc">Navigation turn coming up</div></div>
-    <div class="legend-row"><div class="legend-pattern">————</div><div class="legend-desc">Destination reached</div></div>
   </div>
 </div>
 
@@ -469,16 +496,52 @@
   }
 
   // ── HAPTIC ───────────────────────────────────────────────────
+  const PATTERNS = {
+    single:  [150],
+    double:  [150, 100, 150],
+    triple:  [100, 80, 100, 80, 100],
+    long:    [600],
+    nav:     [400, 100, 400],
+    arrived: [1200, 200, 1200]
+  };
+
+  // selected pattern per event — defaults
+  const hapticPrefs = {
+    warning: 'single',
+    urgent:  'triple',
+    nav:     'nav'
+  };
+
   function vibrate(pattern) {
     if (!navigator.vibrate) return;
-    const p = { single:[150], triple:[100,80,100,80,100], long:[600], nav:[400,100,400], arrived:[1200,200,1200] };
-    navigator.vibrate(p[pattern] || [150]);
+    navigator.vibrate(PATTERNS[pattern] || [150]);
   }
 
   function hapticForLevel(level) {
-    if (level === 'urgent'  && document.getElementById('hapticUrgent').checked)  vibrate('triple');
-    if (level === 'warning' && document.getElementById('hapticWarning').checked) vibrate('single');
+    if (level === 'urgent'  && document.getElementById('hapticUrgent').checked)  vibrate(hapticPrefs.urgent);
+    if (level === 'warning' && document.getElementById('hapticWarning').checked) vibrate(hapticPrefs.warning);
   }
+
+  // wire up haptic option pickers
+  document.querySelectorAll('.haptic-option').forEach(opt => {
+    opt.addEventListener('click', () => {
+      const target  = opt.dataset.target;
+      const pattern = opt.dataset.pattern;
+      // update selection
+      document.querySelectorAll(`.haptic-option[data-target="${target}"]`).forEach(o => o.classList.remove('active'));
+      opt.classList.add('active');
+      hapticPrefs[target] = pattern;
+      // test it immediately
+      vibrate(pattern);
+    });
+  });
+
+  // wire up test buttons
+  document.getElementById('testSingle').addEventListener('click', () => vibrate('single'));
+  document.getElementById('testDouble').addEventListener('click', () => vibrate('double'));
+  document.getElementById('testTriple').addEventListener('click', () => vibrate('triple'));
+  document.getElementById('testLong').addEventListener('click',   () => vibrate('long'));
+  document.getElementById('testNav').addEventListener('click',    () => vibrate('nav'));
 
   let isSpeaking = false;
   const speakQueue = [];
