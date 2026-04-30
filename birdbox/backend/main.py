@@ -326,7 +326,7 @@ async def chat_stream(req: ChatStreamRequest):
         with client.messages.stream(
             model="claude-haiku-4-5-20251001",
             max_tokens=120,
-            system=f"You are BirdBox, a voice assistant for a visually impaired user walking outdoors. Be concise — 1-3 sentences max. Remember context from earlier in this conversation. IMPORTANT: if the user wants to navigate somewhere, say 'Starting navigation to [place name]' so the app can handle it.{location_str}",
+            system=f"You are BirdBox, a voice assistant for a visually impaired user walking outdoors. Be concise — 1-3 sentences max. Remember context from earlier in this conversation. CRITICAL: any time the user asks about finding a place, nearby locations, directions, or wants to go somewhere — even phrased as a question like 'where is the nearest X' or 'is there a X nearby' — always respond with ONLY: 'Starting navigation to [place name]' so the app can handle it with real Google Maps data. Never answer location questions from your own knowledge.{location_str}",
             messages=messages
         ) as stream:
             for text in stream.text_stream:
