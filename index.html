@@ -176,7 +176,11 @@
   <div class="nav-header">
     <div class="nav-dest" id="navDest">Navigating...</div>
     <div class="nav-total" id="navTotal"></div>
+<<<<<<< HEAD
     <button class="btn-stop-nav" id="btnStopNav">✕ Stop</button>
+=======
+    <button class="btn-stop-nav" id="btnStopNav" onclick="void(0)">✕ Stop</button>
+>>>>>>> d5a9b62231398f12fa03e594ec315940039d1658
   </div>
   <div class="nav-step" id="navStep">Loading directions...</div>
   <div class="nav-step-dist" id="navStepDist"></div>
@@ -320,8 +324,13 @@
     const vi = localStorage.getItem('voice_id');
 
     // Pre-load keys from .env via backend if not already saved
+<<<<<<< HEAD
     const ELEVEN_KEY_DEFAULT   = '';
     const ANTHROPIC_KEY_DEFAULT = '';
+=======
+    const ELEVEN_KEY_DEFAULT   = 'sk_d49c8e17ea3864222cbb643ceb03e8b0a5daa8f38594d1fa';
+    const ANTHROPIC_KEY_DEFAULT = 'sk-ant-api03-IVu0FNi_...'; // your anthropic key
+>>>>>>> d5a9b62231398f12fa03e594ec315940039d1658
     if (!ek) {
       localStorage.setItem('eleven_key', ELEVEN_KEY_DEFAULT);
       document.getElementById('elevenKey').value = ELEVEN_KEY_DEFAULT;

@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BirdBox — Live Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:#06090f;--surface:#0c1118;--surface2:#111822;
+    --border:rgba(255,255,255,0.06);--border2:rgba(255,255,255,0.11);
+    --teal:#00e5c8;--teal-dim:rgba(0,229,200,0.10);--teal-glow:rgba(0,229,200,0.30);
+    --amber:#ffb020;--red:#ff4545;--green:#00e87a;
+    --text:#d8e8e8;--muted:#3d5e5e;--muted2:#5a8080;
+    --mono:'Space Mono',monospace;--display:'Syne',sans-serif;
+  }
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+  html,body{height:100%;overflow:hidden;}
+  body{background:var(--bg);color:var(--text);font-family:var(--display);display:grid;grid-template-rows:56px 1fr;grid-template-columns:1fr 380px;height:100vh;}
+  body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,0,0,0.03) 3px,rgba(0,0,0,0.03) 4px);pointer-events:none;z-index:9999;}
+  header{grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;padding:0 24px;background:var(--surface);border-bottom:1px solid var(--border);z-index:100;}
+  .logo{display:flex;align-items:center;gap:14px;}
+  .logo-name{font-family:var(--display);font-size:18px;font-weight:800;letter-spacing:-.03em;color:var(--teal);}
+  .logo-name em{color:var(--text);font-style:normal;}
+  .logo-sep{color:var(--muted);font-size:20px;font-weight:100;}
+  .logo-sub{font-family:var(--mono);font-size:9px;letter-spacing:.18em;text-transform:uppercase;color:var(--muted2);border:1px solid var(--border2);padding:3px 8px;border-radius:2px;}
+  .header-right{display:flex;align-items:center;gap:20px;}
+  .live-badge{display:none;align-items:center;gap:7px;font-family:var(--mono);font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--teal);background:var(--teal-dim);border:1px solid rgba(0,229,200,.3);padding:5px 12px;border-radius:3px;}
+  .live-badge.visible{display:flex;animation:pulse-fade 2s infinite;}
+  .live-dot{width:6px;height:6px;border-radius:50%;background:var(--teal);}
+  .ws-status{display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted2);}
+  .ws-dot{width:8px;height:8px;border-radius:50%;background:var(--muted);transition:background .3s,box-shadow .3s;}
+  .ws-dot.on{background:var(--green);box-shadow:0 0 8px rgba(0,232,122,.5);animation:pulse-fade 2s infinite;}
+  .ws-dot.live{background:var(--teal);box-shadow:0 0 10px var(--teal-glow);animation:pulse-fade 1.4s infinite;}
+  @keyframes pulse-fade{0%,100%{opacity:1}50%{opacity:.4}}
+  .clock{font-family:var(--mono);font-size:12px;color:var(--muted2);letter-spacing:.08em;min-width:75px;text-align:right;}
+  #map-wrap{grid-row:2;grid-column:1;position:relative;overflow:hidden;background:#080c14;}
+  #map{width:100%;height:100%;}
+  #map-wrap::before,#map-wrap::after{content:'';position:absolute;width:40px;height:40px;border-color:var(--teal);border-style:solid;opacity:.5;z-index:10;pointer-events:none;}
+  #map-wrap::before{top:16px;left:16px;border-width:2px 0 0 2px;}
+  #map-wrap::after{bottom:16px;right:16px;border-width:0 2px 2px 0;}
+  .map-hud{position:absolute;bottom:0;left:0;right:0;z-index:10;padding:60px 18px 16px;background:linear-gradient(transparent,rgba(6,9,15,.88));pointer-events:none;display:flex;align-items:flex-end;justify-content:space-between;}
+  .map-address{font-family:var(--mono);font-size:10px;color:var(--text);letter-spacing:.04em;opacity:.85;max-width:58%;line-height:1.6;}
+  .map-coords{font-family:var(--mono);font-size:10px;color:var(--muted2);letter-spacing:.04em;text-align:right;}
+  .map-last-seen{position:absolute;top:16px;right:16px;z-index:10;font-family:var(--mono);font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted2);background:rgba(6,9,15,.7);border:1px solid var(--border2);border-radius:3px;padding:5px 10px;backdrop-filter:blur(4px);}
+  #map-placeholder{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;background:var(--surface);z-index:5;}
+  .ph-ring{width:64px;height:64px;border-radius:50%;border:1px solid var(--border2);display:flex;align-items:center;justify-content:center;font-size:1.8rem;opacity:.35;}
+  #map-placeholder p{font-family:var(--mono);font-size:11px;color:var(--muted2);text-align:center;line-height:2.1;}
+  #sidebar{grid-row:2;grid-column:2;border-left:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;background:var(--surface);}
+  .panel{border-bottom:1px solid var(--border);flex-shrink:0;}
+  .panel-header{padding:12px 18px;display:flex;align-items:center;justify-content:space-between;}
+  .panel-title{font-family:var(--mono);font-size:9px;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);}
+  .panel-meta{font-family:var(--mono);font-size:9px;color:var(--muted2);}
+  .status-body{padding:14px 18px 16px;display:flex;align-items:center;gap:14px;}
+  .status-ring{width:46px;height:46px;border-radius:50%;border:1.5px solid rgba(0,232,122,.4);background:rgba(0,232,122,.06);display:flex;align-items:center;justify-content:center;font-size:1.3rem;flex-shrink:0;transition:all .3s;}
+  .status-ring.warning{border-color:rgba(255,176,32,.45);background:rgba(255,176,32,.07);}
+  .status-ring.urgent{border-color:rgba(255,69,69,.55);background:rgba(255,69,69,.09);animation:urgentRing .65s ease-in-out infinite;}
+  @keyframes urgentRing{0%,100%{box-shadow:0 0 0 0 rgba(255,69,69,.35);}50%{box-shadow:0 0 0 12px rgba(255,69,69,0);}}
+  .status-info{flex:1;min-width:0;}
+  .status-lvl{font-family:var(--mono);font-size:9px;letter-spacing:.15em;text-transform:uppercase;color:var(--green);margin-bottom:4px;transition:color .3s;}
+  .status-lvl.warning{color:var(--amber);}
+  .status-lvl.urgent{color:var(--red);}
+  .status-msg{font-size:13px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .status-time{font-family:var(--mono);font-size:9px;color:var(--muted2);margin-top:4px;}
+  .stats-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:1px;background:var(--border);}
+  .stat-box{background:var(--surface2);padding:13px 16px;}
+  .stat-num{font-family:var(--mono);font-size:26px;font-weight:700;color:var(--text);line-height:1;letter-spacing:-.03em;transition:color .3s;}
+  .stat-num.w{color:var(--amber);}
+  .stat-num.u{color:var(--red);}
+  .stat-lbl{font-family:var(--mono);font-size:8px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-top:5px;}
+  .connect-section{padding:12px 14px;border-bottom:1px solid var(--border);flex-shrink:0;}
+  .connect-row{display:flex;gap:8px;}
+  .ws-input{flex:1;background:var(--bg);border:1px solid var(--border2);border-radius:5px;padding:8px 11px;font-family:var(--mono);font-size:10px;color:var(--text);outline:none;transition:border-color .2s;}
+  .ws-input:focus{border-color:var(--teal);}
+  .btn-connect{padding:8px 16px;background:var(--teal);color:var(--bg);border:none;border-radius:5px;font-family:var(--display);font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;transition:opacity .15s,background .2s;}
+  .btn-connect:hover{opacity:.85;}
+  .btn-connect.disc{background:transparent;color:var(--red);border:1px solid rgba(255,69,69,.4);}
+  .connect-hint{font-family:var(--mono);font-size:9px;color:var(--muted2);margin-top:7px;letter-spacing:.04em;}
+  .log-panel{flex:1;display:flex;flex-direction:column;min-height:0;border-bottom:none;}
+  .log-controls{padding:0 18px 10px;display:flex;gap:6px;flex-shrink:0;}
+  .filter-pill{padding:4px 10px;border-radius:99px;font-family:var(--mono);font-size:8px;letter-spacing:.1em;text-transform:uppercase;border:1px solid var(--border2);background:transparent;color:var(--muted2);cursor:pointer;transition:all .15s;}
+  .filter-pill.active{color:var(--text);border-color:var(--border2);background:var(--surface2);}
+  .filter-pill.active.all{color:var(--teal);border-color:var(--teal);background:var(--teal-dim);}
+  .filter-pill.active.urgent{color:var(--red);border-color:rgba(255,69,69,.5);background:rgba(255,69,69,.08);}
+  .filter-pill.active.warn{color:var(--amber);border-color:rgba(255,176,32,.5);background:rgba(255,176,32,.08);}
+  .filter-pill.active.safe{color:var(--green);border-color:rgba(0,232,122,.5);background:rgba(0,232,122,.08);}
+  .log-scroll{flex:1;overflow-y:auto;min-height:0;}
+  .log-scroll::-webkit-scrollbar{width:3px;}
+  .log-scroll::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px;}
+  .log-entry{padding:10px 18px;border-left:3px solid transparent;transition:background .15s;animation:slideIn .22s ease;}
+  @keyframes slideIn{from{opacity:0;transform:translateX(8px)}to{opacity:1;transform:translateX(0)}}
+  .log-entry:hover{background:var(--surface2);}
+  .log-entry.safe{border-left-color:var(--green);}
+  .log-entry.warning{border-left-color:var(--amber);}
+  .log-entry.urgent{border-left-color:var(--red);}
+  .log-entry.info{border-left-color:var(--teal);}
+  .log-row{display:flex;align-items:baseline;justify-content:space-between;gap:10px;}
+  .log-msg{font-size:12px;font-weight:600;color:var(--text);flex:1;min-width:0;}
+  .log-time{font-family:var(--mono);font-size:9px;color:var(--muted2);flex-shrink:0;}
+  .log-sub{display:flex;align-items:center;gap:8px;margin-top:3px;}
+  .log-lvl{font-family:var(--mono);font-size:8px;letter-spacing:.1em;text-transform:uppercase;}
+  .log-entry.safe .log-lvl{color:var(--green);}
+  .log-entry.warning .log-lvl{color:var(--amber);}
+  .log-entry.urgent .log-lvl{color:var(--red);}
+  .log-entry.info .log-lvl{color:var(--teal);}
+  .log-coords{font-family:var(--mono);font-size:8px;color:var(--muted);}
+  .log-empty{padding:40px 18px;text-align:center;font-family:var(--mono);font-size:10px;color:var(--muted);line-height:2.4;}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <span class="logo-name">Bird<em>Box</em></span>
+    <span class="logo-sep">|</span>
+    <span class="logo-sub">Live Dashboard</span>
+  </div>
+  <div class="header-right">
+    <span class="live-badge" id="liveBadge"><span class="live-dot"></span>Phone Live</span>
+    <div class="ws-status">
+      <div class="ws-dot" id="wsDot"></div>
+      <span id="wsLabel">Disconnected</span>
+    </div>
+    <div class="clock" id="clock">--:--:--</div>
+  </div>
+</header>
+
+<div id="map-wrap">
+  <div id="map"></div>
+  <div id="map-placeholder">
+    <div class="ph-ring">🗺️</div>
+    <p>Waiting for phone location…<br>Click Connect below,<br>then open BirdBox on the phone.</p>
+  </div>
+  <div class="map-hud">
+    <div class="map-address" id="mapAddress">—</div>
+    <div class="map-coords"  id="mapCoords">—</div>
+  </div>
+  <div class="map-last-seen" id="mapLastSeen">Last seen: —</div>
+</div>
+
+<div id="sidebar">
+  <div class="panel">
+    <div class="panel-header">
+      <span class="panel-title">⬤ Current Status</span>
+      <span class="panel-meta" id="statusAge">—</span>
+    </div>
+    <div class="status-body">
+      <div class="status-ring" id="statusRing">✅</div>
+      <div class="status-info">
+        <div class="status-lvl"  id="statusLevel">Safe</div>
+        <div class="status-msg"  id="statusMsg">Waiting for data…</div>
+        <div class="status-time" id="statusTime">—</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel" style="padding:0">
+    <div class="stats-grid">
+      <div class="stat-box"><div class="stat-num"   id="statTotal">0</div><div class="stat-lbl">Scans</div></div>
+      <div class="stat-box"><div class="stat-num w" id="statWarn">0</div><div class="stat-lbl">Warnings</div></div>
+      <div class="stat-box"><div class="stat-num u" id="statUrgent">0</div><div class="stat-lbl">Urgent</div></div>
+    </div>
+  </div>
+
+  <div class="connect-section">
+    <div class="connect-row">
+      <input class="ws-input" id="wsUrl" value="wss://smelting-unleaded-plow.ngrok-free.dev/ws" placeholder="wss://your-ngrok-url/ws">
+      <button class="btn-connect" id="btnConnect">Connect</button>
+    </div>
+    <div class="connect-hint" id="connectHint">Click Connect, then open BirdBox on your phone.</div>
+  </div>
+
+  <div class="log-panel panel">
+    <div class="panel-header">
+      <span class="panel-title">🗒 Obstacle Log</span>
+      <span class="panel-meta" id="logCount">0 events</span>
+    </div>
+    <div class="log-controls">
+      <button class="filter-pill active all" data-filter="all">All</button>
+      <button class="filter-pill" data-filter="urgent">Urgent</button>
+      <button class="filter-pill" data-filter="warning">Warning</button>
+      <button class="filter-pill" data-filter="safe">Safe</button>
+    </div>
+    <div class="log-scroll" id="logScroll">
+      <div class="log-empty" id="logEmpty">No events yet.<br>Start scanning on the phone.</div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const GOOGLE_MAPS_API_KEY = 'AIzaSyAfLt0wEer0nmX_WN3-1e--PWN18nJO91E';
+  let ws=null,map=null,marker=null,circle=null,pulseCircle=null,mapsReady=false;
+  let trailLine=null,trailCoords=[],obstacleDots=[];
+  let lastTrailPos=null;
+  let logCount=0,stats={total:0,warning:0,urgent:0},activeFilter='all',allEntries=[];
+  let lastUpdateTime=null,statusAgeTimer=null;
+
+  const clockEl=document.getElementById('clock');
+  setInterval(()=>clockEl.textContent=new Date().toLocaleTimeString(),1000);
+  clockEl.textContent=new Date().toLocaleTimeString();
+
+  function startStatusAgeTimer(){
+    clearInterval(statusAgeTimer);
+    statusAgeTimer=setInterval(()=>{
+      if(!lastUpdateTime)return;
+      const s=Math.round((Date.now()-lastUpdateTime)/1000);
+      document.getElementById('statusAge').textContent=s<5?'just now':`${s}s ago`;
+    },1000);
+  }
+
+  const wsDot=document.getElementById('wsDot');
+  const wsLabel=document.getElementById('wsLabel');
+  const btnConn=document.getElementById('btnConnect');
+
+  function setConnected(on){
+    wsDot.className='ws-dot'+(on?' on':'');
+    wsLabel.textContent=on?'Connected':'Disconnected';
+    btnConn.textContent=on?'Disconnect':'Connect';
+    btnConn.className='btn-connect'+(on?' disc':'');
+    document.getElementById('connectHint').textContent=on
+      ?'✓ Live — open BirdBox on the phone to start streaming.'
+      :'Click Connect, then open BirdBox on your phone.';
+  }
+
+  btnConn.addEventListener('click',()=>{
+    if(ws){ws.close();return;}
+    const url=document.getElementById('wsUrl').value.trim();
+    try{
+      ws=new WebSocket(url);
+      ws.onopen=()=>{setConnected(true);addLog('info','Connected to BirdBox backend');};
+      ws.onclose=()=>{
+        setConnected(false);ws=null;
+        wsDot.className='ws-dot';
+        document.getElementById('liveBadge').classList.remove('visible');
+        addLog('info','Disconnected from backend');
+      };
+      ws.onerror=()=>addLog('urgent','WebSocket error — is the backend running?');
+      ws.onmessage=(e)=>{try{handleMessage(JSON.parse(e.data));}catch{}};
+    }catch{addLog('urgent','Invalid WebSocket URL');}
+  });
+
+  function handleMessage(data){
+    if(data.type!=='location')return;
+    document.getElementById('liveBadge').classList.add('visible');
+    wsDot.className='ws-dot live';
+    lastUpdateTime=Date.now();
+    updateMap(data.lat,data.lng,data.level);
+    updateStatus(data.level,data.message);
+    if(data.message&&data.message!=='Location acquired'){
+      addLog(data.level,data.message,data.lat,data.lng);
+    }
+    stats.total++;
+    if(data.level==='warning')stats.warning++;
+    if(data.level==='urgent')stats.urgent++;
+    document.getElementById('statTotal').textContent=stats.total;
+    document.getElementById('statWarn').textContent=stats.warning;
+    document.getElementById('statUrgent').textContent=stats.urgent;
+    document.getElementById('mapLastSeen').textContent='Last seen: '+new Date().toLocaleTimeString();
+    document.getElementById('mapCoords').textContent=data.lat.toFixed(5)+', '+data.lng.toFixed(5);
+  }
+
+  const levelIcons={safe:'✅',warning:'⚠️',urgent:'🚨',info:'📡'};
+
+  function updateStatus(level,message){
+    document.getElementById('statusRing').className='status-ring '+level;
+    document.getElementById('statusRing').textContent=levelIcons[level]||'📍';
+    document.getElementById('statusLevel').className='status-lvl '+level;
+    document.getElementById('statusLevel').textContent=level.charAt(0).toUpperCase()+level.slice(1);
+    document.getElementById('statusMsg').textContent=message||'—';
+    document.getElementById('statusTime').textContent=new Date().toLocaleTimeString();
+    startStatusAgeTimer();
+  }
+
+  function addLog(level,message,lat,lng){
+    const empty=document.getElementById('logEmpty');
+    if(empty)empty.remove();
+    logCount++;
+    document.getElementById('logCount').textContent=`${logCount} event${logCount!==1?'s':''}`;
+    allEntries.unshift({level,message,lat,lng,time:new Date()});
+    if(allEntries.length>200)allEntries.pop();
+    renderLog();
+  }
+
+  function renderLog(){
+    const scroll=document.getElementById('logScroll');
+    const filtered=allEntries.filter(e=>activeFilter==='all'||e.level===activeFilter);
+    scroll.innerHTML='';
+    if(!filtered.length){
+      scroll.innerHTML=`<div class="log-empty">No ${activeFilter==='all'?'':activeFilter+' '}events yet.</div>`;
+      return;
+    }
+    filtered.forEach(entry=>{
+      const el=document.createElement('div');
+      el.className=`log-entry ${entry.level}`;
+      const coordStr=(entry.lat&&entry.lng)?`${entry.lat.toFixed(4)}, ${entry.lng.toFixed(4)}`:'';
+      el.innerHTML=`
+        <div class="log-row"><div class="log-msg">${entry.message}</div><div class="log-time">${entry.time.toLocaleTimeString()}</div></div>
+        <div class="log-sub"><span class="log-lvl">${entry.level.toUpperCase()}</span>${coordStr?`<span class="log-coords">${coordStr}</span>`:''}</div>`;
+      scroll.appendChild(el);
+    });
+  }
+
+  document.querySelectorAll('.filter-pill').forEach(pill=>{
+    pill.addEventListener('click',()=>{
+      activeFilter=pill.dataset.filter;
+      document.querySelectorAll('.filter-pill').forEach(p=>p.className='filter-pill');
+      pill.className=`filter-pill active ${activeFilter}`;
+      renderLog();
+    });
+  });
+
+  window.initMap=function(){mapsReady=true;};
+  const levelColors={safe:'#00e87a',warning:'#ffb020',urgent:'#ff4545',info:'#00e5c8'};
+
+  function haversine2(lat1,lng1,lat2,lng2){
+    const R=6371000,p1=lat1*Math.PI/180,p2=lat2*Math.PI/180;
+    const dp=(lat2-lat1)*Math.PI/180,dl=(lng2-lng1)*Math.PI/180;
+    const a=Math.sin(dp/2)**2+Math.cos(p1)*Math.cos(p2)*Math.sin(dl/2)**2;
+    return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+  }
+
+  function updateMap(lat,lng,level){
+    const placeholder=document.getElementById('map-placeholder');
+    if(placeholder)placeholder.style.display='none';
+    if(!mapsReady)return;
+    const color=levelColors[level]||levelColors.safe;
+    const pos={lat,lng};
+
+    // only add to trail if moved at least 3 meters
+    const shouldAddTrail = !lastTrailPos || haversine2(lastTrailPos.lat,lastTrailPos.lng,lat,lng) > 3;
+    if(shouldAddTrail){ trailCoords.push(pos); lastTrailPos=pos; }
+
+    if(!map){
+      map=new google.maps.Map(document.getElementById('map'),{
+        center:pos,zoom:17,mapTypeControl:false,streetViewControl:false,fullscreenControl:true,
+        zoomControlOptions:{position:google.maps.ControlPosition.RIGHT_TOP},
+        styles:[
+          {elementType:'geometry',stylers:[{color:'#08101a'}]},
+          {elementType:'labels.text.fill',stylers:[{color:'#4a6070'}]},
+          {elementType:'labels.text.stroke',stylers:[{color:'#06090f'}]},
+          {featureType:'road',elementType:'geometry',stylers:[{color:'#182030'}]},
+          {featureType:'road',elementType:'geometry.stroke',stylers:[{color:'#0c1018'}]},
+          {featureType:'road.highway',elementType:'geometry',stylers:[{color:'#1c2c44'}]},
+          {featureType:'road.highway',elementType:'labels.text.fill',stylers:[{color:'#3c5068'}]},
+          {featureType:'water',elementType:'geometry',stylers:[{color:'#040810'}]},
+          {featureType:'poi',elementType:'geometry',stylers:[{color:'#0d1420'}]},
+          {featureType:'poi.park',elementType:'geometry',stylers:[{color:'#0a1a12'}]},
+          {featureType:'transit',elementType:'geometry',stylers:[{color:'#0d1420'}]},
+          {featureType:'administrative',elementType:'geometry.stroke',stylers:[{color:'#182030'}]},
+          {featureType:'landscape',elementType:'geometry',stylers:[{color:'#0d1420'}]},
+        ]
+      });
+
+      // trail polyline using MVCArray for live updates
+      trailLine=new google.maps.Polyline({
+        path: new google.maps.MVCArray(trailCoords),
+        map,
+        strokeColor:'#00e5c8',
+        strokeOpacity:0.7,
+        strokeWeight:3,
+        zIndex:2
+      });
+
+      marker=new google.maps.Marker({position:pos,map,title:'BirdBox User',
+        icon:{path:google.maps.SymbolPath.CIRCLE,scale:10,fillColor:color,fillOpacity:1,strokeColor:'#06090f',strokeWeight:3},zIndex:10});
+      circle=new google.maps.Circle({map,center:pos,radius:12,fillColor:color,fillOpacity:.12,strokeColor:color,strokeOpacity:.35,strokeWeight:1});
+      pulseCircle=new google.maps.Circle({map,center:pos,radius:25,fillColor:color,fillOpacity:.05,strokeColor:color,strokeOpacity:.2,strokeWeight:1});
+    } else {
+      // update trail
+      if(shouldAddTrail) trailLine.getPath().push(new google.maps.LatLng(lat,lng));
+
+      marker.setPosition(pos);
+      marker.setIcon({path:google.maps.SymbolPath.CIRCLE,scale:10,fillColor:color,fillOpacity:1,strokeColor:'#06090f',strokeWeight:3});
+      circle.setCenter(pos);circle.setOptions({fillColor:color,strokeColor:color});
+      pulseCircle.setCenter(pos);pulseCircle.setOptions({fillColor:color,strokeColor:color});
+      map.panTo(pos);
+    }
+
+    // drop a colored dot for warnings/urgent
+    if(level==='warning'||level==='urgent'){
+      const dot=new google.maps.Marker({
+        position:pos,map,
+        icon:{path:google.maps.SymbolPath.CIRCLE,scale:5,fillColor:color,fillOpacity:0.9,strokeColor:'#06090f',strokeWeight:1.5},
+        zIndex:5
+      });
+      obstacleDots.push(dot);
+    }
+
+    new google.maps.Geocoder().geocode({location:pos},(results,status)=>{
+      if(status==='OK'&&results[0])document.getElementById('mapAddress').textContent=results[0].formatted_address;
+    });
+  }
+
+  const s=document.createElement('script');
+  s.src=`https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&callback=initMap`;
+  s.async=true;s.defer=true;
+  document.head.appendChild(s);
+</script>
+</body>
+</html>
