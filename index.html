@@ -7,42 +7,30 @@
 <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;700;800&display=swap" rel="stylesheet">
 <style>
   :root {
-    --bg: #080c0c;
-    --surface: #0f1a1a;
-    --border: #1a2e2e;
-    --teal: #00e5c8;
-    --teal-dim: rgba(0,229,200,0.12);
-    --teal-glow: rgba(0,229,200,0.4);
-    --amber: #ffb020;
-    --red: #ff4545;
-    --green: #00e87a;
-    --text: #d0eded;
-    --muted: #4a7070;
-    --mono: 'Space Mono', monospace;
-    --display: 'Syne', sans-serif;
+    --bg: #080c0c; --surface: #0f1a1a; --border: #1a2e2e;
+    --teal: #00e5c8; --teal-dim: rgba(0,229,200,0.12); --teal-glow: rgba(0,229,200,0.4);
+    --amber: #ffb020; --red: #ff4545; --green: #00e87a;
+    --text: #d0eded; --muted: #4a7070;
+    --mono: 'Space Mono', monospace; --display: 'Syne', sans-serif;
   }
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
   body { background: #000; font-family: var(--display); height: 100dvh; overflow: hidden; }
-
   #video { position: fixed; inset: 0; width: 100%; height: 100%; object-fit: cover; z-index: 1; }
   canvas { display: none; }
-
   #glowBorder { position: fixed; inset: 0; z-index: 10; pointer-events: none; transition: box-shadow .4s; }
-  #glowBorder.idle      { box-shadow: none; }
-  #glowBorder.listening { box-shadow: inset 0 0 60px 8px rgba(0,229,200,.6), inset 0 0 120px 20px rgba(0,229,200,.2); animation: glow-teal 1.2s ease-in-out infinite; }
-  #glowBorder.speaking  { box-shadow: inset 0 0 60px 8px rgba(255,176,32,.6), inset 0 0 120px 20px rgba(255,176,32,.2); animation: glow-amber .8s ease-in-out infinite; }
-  #glowBorder.urgent    { box-shadow: inset 0 0 80px 12px rgba(255,69,69,.8), inset 0 0 160px 30px rgba(255,69,69,.3); animation: glow-red .4s ease-in-out infinite; }
-  #glowBorder.warning   { box-shadow: inset 0 0 40px 4px rgba(255,176,32,.4), inset 0 0 80px 10px rgba(255,176,32,.15); }
+  #glowBorder.idle       { box-shadow: none; }
+  #glowBorder.listening  { box-shadow: inset 0 0 60px 8px rgba(0,229,200,.6), inset 0 0 120px 20px rgba(0,229,200,.2); animation: glow-teal 1.2s ease-in-out infinite; }
+  #glowBorder.speaking   { box-shadow: inset 0 0 60px 8px rgba(255,176,32,.6), inset 0 0 120px 20px rgba(255,176,32,.2); animation: glow-amber .8s ease-in-out infinite; }
+  #glowBorder.urgent     { box-shadow: inset 0 0 80px 12px rgba(255,69,69,.8), inset 0 0 160px 30px rgba(255,69,69,.3); animation: glow-red .4s ease-in-out infinite; }
+  #glowBorder.warning    { box-shadow: inset 0 0 40px 4px rgba(255,176,32,.4), inset 0 0 80px 10px rgba(255,176,32,.15); }
   #glowBorder.navigating { box-shadow: inset 0 0 40px 4px rgba(0,232,122,.4), inset 0 0 80px 10px rgba(0,232,122,.1); animation: glow-green 2s ease-in-out infinite; }
   @keyframes glow-teal  { 0%,100%{box-shadow:inset 0 0 60px 8px rgba(0,229,200,.6),inset 0 0 120px 20px rgba(0,229,200,.2)} 50%{box-shadow:inset 0 0 90px 16px rgba(0,229,200,.9),inset 0 0 180px 40px rgba(0,229,200,.4)} }
   @keyframes glow-amber { 0%,100%{box-shadow:inset 0 0 60px 8px rgba(255,176,32,.6),inset 0 0 120px 20px rgba(255,176,32,.2)} 50%{box-shadow:inset 0 0 90px 16px rgba(255,176,32,.9),inset 0 0 180px 40px rgba(255,176,32,.4)} }
   @keyframes glow-red   { 0%,100%{box-shadow:inset 0 0 80px 12px rgba(255,69,69,.8),inset 0 0 160px 30px rgba(255,69,69,.3)} 50%{box-shadow:inset 0 0 120px 24px rgba(255,69,69,1),inset 0 0 220px 60px rgba(255,69,69,.5)} }
   @keyframes glow-green { 0%,100%{box-shadow:inset 0 0 40px 4px rgba(0,232,122,.4),inset 0 0 80px 10px rgba(0,232,122,.1)} 50%{box-shadow:inset 0 0 60px 8px rgba(0,232,122,.6),inset 0 0 120px 20px rgba(0,232,122,.2)} }
-
   #scanLine { position: fixed; left: 0; right: 0; height: 2px; background: linear-gradient(90deg, transparent, var(--teal), transparent); opacity: 0; z-index: 11; pointer-events: none; }
   #scanLine.running { opacity: .4; animation: scan 2s ease-in-out infinite; }
   @keyframes scan { 0%{top:5%;opacity:0} 10%{opacity:.4} 90%{opacity:.4} 100%{top:95%;opacity:0} }
-
   #topBar { position: fixed; top: 0; left: 0; right: 0; z-index: 20; padding: 48px 20px 16px; background: linear-gradient(to bottom, rgba(8,12,12,.85), transparent); display: flex; align-items: center; justify-content: space-between; }
   .logo { font-size: 22px; font-weight: 800; letter-spacing: -.02em; color: var(--teal); }
   .logo span { color: #fff; }
@@ -54,10 +42,8 @@
   .status-pill.speaking   { color: var(--amber); border-color: var(--amber); background: rgba(255,176,32,.1); }
   .status-pill.navigating { color: var(--green); border-color: var(--green); background: rgba(0,232,122,.1); }
   .btn-settings { width: 40px; height: 40px; border-radius: 50%; background: rgba(8,12,12,.6); border: 1px solid var(--border); color: var(--muted); font-size: 18px; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(4px); cursor: pointer; }
-
   #wakeHint { position: fixed; bottom: 180px; left: 50%; transform: translateX(-50%); z-index: 20; font-family: var(--mono); font-size: 11px; letter-spacing: .15em; text-transform: uppercase; color: rgba(0,229,200,.6); text-align: center; pointer-events: none; transition: opacity 1s ease; white-space: nowrap; }
   #wakeHint.hidden { opacity: 0; }
-
   #navBar { position: fixed; top: 110px; left: 12px; right: 12px; z-index: 20; background: rgba(8,12,12,.92); border: 1px solid var(--green); border-radius: 12px; padding: 14px 16px; backdrop-filter: blur(8px); display: none; animation: slide-down .3s ease; }
   #navBar.visible { display: block; }
   @keyframes slide-down { from{transform:translateY(-10px);opacity:0} to{transform:translateY(0);opacity:1} }
@@ -67,9 +53,7 @@
   .nav-step { font-size: 15px; font-weight: 600; color: var(--green); line-height: 1.4; }
   .nav-step-dist { font-family: var(--mono); font-size: 11px; color: var(--muted); margin-top: 4px; }
   .btn-stop-nav { padding: 6px 12px; border-radius: 6px; background: rgba(255,69,69,.15); border: 1px solid var(--red); color: var(--red); font-family: var(--mono); font-size: 10px; cursor: pointer; }
-
   #bottomHud { position: fixed; bottom: 0; left: 0; right: 0; z-index: 20; padding: 16px 16px 44px; background: linear-gradient(to top, rgba(8,12,12,.9), transparent); }
-
   #alertBox { background: rgba(8,12,12,.88); border: 1px solid var(--border); border-left: 4px solid var(--teal); border-radius: 10px; padding: 14px 16px; backdrop-filter: blur(8px); margin-bottom: 12px; display: none; animation: slide-up .25s ease; }
   #alertBox.visible { display: block; }
   #alertBox.urgent  { border-left-color: var(--red); }
@@ -82,44 +66,20 @@
   #alertBox.safe    .alert-type { color: var(--teal); }
   .alert-msg  { font-size: 16px; font-weight: 700; color: #fff; line-height: 1.4; }
   .alert-time { font-family: var(--mono); font-size: 9px; color: var(--muted); margin-top: 4px; }
-
   #voiceBox { background: rgba(8,12,12,.9); border: 1px solid var(--teal); border-radius: 10px; padding: 14px 16px; backdrop-filter: blur(8px); margin-bottom: 12px; display: none; animation: slide-up .25s ease; }
   #voiceBox.visible { display: block; }
   .voice-user { font-family: var(--mono); font-size: 11px; color: var(--teal); margin-bottom: 6px; }
   .voice-ai   { font-size: 15px; font-weight: 600; color: #fff; line-height: 1.5; }
-
   .bottom-btns { display: flex; gap: 10px; }
   .btn { flex: 1; padding: 18px; border: none; border-radius: 14px; font-family: var(--display); font-size: 16px; font-weight: 700; letter-spacing: .02em; transition: all .15s; display: flex; align-items: center; justify-content: center; gap: 8px; user-select: none; -webkit-user-select: none; min-height: 64px; cursor: pointer; backdrop-filter: blur(8px); }
   .btn:active { transform: scale(.96); }
-  .btn-start {
-    position: fixed;
-    left: 50%; top: 50%;
-    transform: translate(-50%, -50%);
-    width: 180px; height: 180px;
-    border-radius: 50%;
-    background: var(--green);
-    color: #000;
-    font-size: 20px;
-    font-weight: 800;
-    border: none;
-    box-shadow: 0 0 0 12px rgba(0,232,122,.15), 0 0 0 24px rgba(0,232,122,.07), 0 8px 40px rgba(0,232,122,.4);
-    flex: none;
-    z-index: 15;
-    animation: pulse-start 2s ease-in-out infinite;
-  }
-  .btn-start:active { transform: translate(-50%, -50%) scale(.93); }
-  @keyframes pulse-start {
-    0%,100% { box-shadow: 0 0 0 12px rgba(0,232,122,.15), 0 0 0 24px rgba(0,232,122,.07), 0 8px 40px rgba(0,232,122,.4); }
-    50%      { box-shadow: 0 0 0 18px rgba(0,232,122,.20), 0 0 0 36px rgba(0,232,122,.09), 0 8px 60px rgba(0,232,122,.6); }
-  }
+  .btn-start { background: var(--teal); color: var(--bg); }
   .btn-stop  { background: rgba(255,69,69,.15); color: var(--red); border: 2px solid var(--red); }
   .btn-flip  { flex: 0 0 64px; background: rgba(255,255,255,.1); color: #fff; border: 1px solid rgba(255,255,255,.2); font-size: 22px; }
   .frame-count { font-family: var(--mono); font-size: 9px; color: rgba(255,255,255,.3); text-align: center; letter-spacing: .1em; margin-top: 8px; }
-
   #noCam { position: fixed; inset: 0; z-index: 5; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; background: var(--surface); }
   #noCam .icon { font-size: 4rem; opacity: .4; }
   #noCam p { font-family: var(--mono); font-size: 13px; color: var(--muted); text-align: center; max-width: 240px; line-height: 1.7; }
-
   #settingsOverlay { position: fixed; inset: 0; z-index: 100; background: rgba(8,12,12,.97); backdrop-filter: blur(12px); display: none; flex-direction: column; overflow-y: auto; padding: 60px 16px 40px; gap: 14px; }
   #settingsOverlay.visible { display: flex; }
   .settings-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
@@ -131,11 +91,6 @@
   .setting-row:last-child { border-bottom: none; padding-bottom: 0; }
   .setting-label-text { font-size: 15px; font-weight: 600; color: var(--text); }
   .setting-desc { font-family: var(--mono); font-size: 10px; color: var(--muted); margin-top: 3px; }
-  .haptic-picker { display: flex; gap: 6px; flex-wrap: wrap; margin: 6px 0 4px; }
-  .haptic-option { padding: 7px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg); color: var(--muted); font-family: var(--mono); font-size: 11px; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 2px; transition: all .15s; user-select: none; -webkit-user-select: none; }
-  .haptic-option:active { transform: scale(.96); }
-  .haptic-option.active { background: var(--teal-dim); border-color: var(--teal); color: var(--teal); }
-  .haptic-hint { font-size: 9px; color: var(--muted); letter-spacing: .05em; }
   .toggle { position: relative; width: 50px; height: 28px; flex-shrink: 0; cursor: pointer; }
   .toggle input { opacity: 0; width: 0; height: 0; }
   .toggle-slider { position: absolute; inset: 0; background: var(--border); border-radius: 99px; transition: .2s; }
@@ -147,8 +102,6 @@
   .interval-pills { display: flex; gap: 6px; }
   .ipill { padding: 8px 14px; border-radius: 99px; font-family: var(--mono); font-size: 11px; background: var(--bg); border: 1px solid var(--border); color: var(--muted); cursor: pointer; transition: all .15s; }
   .ipill.active { background: var(--teal-dim); border-color: var(--teal); color: var(--teal); }
-
-  /* Voice cards grid */
   .voice-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
   .voice-card { padding: 12px; border-radius: 10px; border: 1px solid var(--border); background: var(--bg); cursor: pointer; transition: all .15s; }
   .voice-card:active { transform: scale(.97); }
@@ -210,13 +163,11 @@
   <div class="frame-count" id="frameCount">FRAMES ANALYZED: 0</div>
 </div>
 
-<!-- SETTINGS -->
 <div id="settingsOverlay">
   <div class="settings-header">
     <div class="settings-title-main">Settings</div>
     <button class="btn-close-settings" id="btnCloseSettings">✕</button>
   </div>
-
   <div class="settings-section">
     <div class="section-label">📷 Camera</div>
     <div class="interval-row">
@@ -228,8 +179,6 @@
       </div>
     </div>
   </div>
-
-
   <div class="settings-section">
     <div class="section-label">🔊 Audio</div>
     <div class="setting-row">
@@ -247,79 +196,36 @@
 </div>
 
 <script>
-// ── No API keys in frontend — all calls go through the backend ──
+// ════════════════════════════════════════════════════════════════
+// SPEECH ENGINE: fetch → arrayBuffer → decodeAudioData → AudioBufferSourceNode
+// No new Audio() / HTMLMediaElement anywhere.
+// iOS keep-alive: silent ping every 20s prevents context suspension.
+// Voice is read at dequeue time so settings changes take effect immediately.
+// No listenForSelection / auto-prompt — user always says "Hey BirdBox" to reply.
+// ════════════════════════════════════════════════════════════════
 
-// ── iOS unlock ────────────────────────────────────────────────
-document.addEventListener('touchstart', () => {
-  unlockAudio();
-}, { once: true, passive: true });
-
-// ── CONFIG ────────────────────────────────────────────────────
 const BACKEND    = 'https://smelting-unleaded-plow.ngrok-free.dev';
 const WAKE_WORDS = ['hey birdbox','hey bird box','birdbox','bird box','hey bird'];
 
-// ── VOICES — each with distinct personality settings ─────────
-// stability:        lower = more expressive/varied tone
-// similarity_boost: how closely it matches original voice
-// style:            speaking style exaggeration (0–1)
-// speaking_rate is handled via the model naturally
 const VOICES = [
-  {
-    id: 'EXAVITQu4vr4xnSDxMaL', name: 'Bella', emoji: '👩',
-    tag: 'Female · Soft & Gentle',
-    desc: 'Warm and soothing. Low-stress alerts.',
-    preview: "Hello, I'm Bella.",
-    settings: { stability: 0.60, similarity_boost: 0.75, style: 0.25 }
-  },
-  {
-    id: 'pFZP5JQG7iQjIQuC4Bku', name: 'Lily', emoji: '👩',
-    tag: 'Female · Bright & Energetic',
-    desc: 'Upbeat and lively. Keeps you alert.',
-    preview: "Hello, I'm Lily.",
-    settings: { stability: 0.45, similarity_boost: 0.85, style: 0.40 }
-  },
-  {
-    id: 'pNInz6obpgDQGcFmaJgB', name: 'Adam', emoji: '👨',
-    tag: 'Male · Deep & Authoritative',
-    desc: 'Bold and commanding. Clear warnings.',
-    preview: "Hello, I'm Adam.",
-    settings: { stability: 0.82, similarity_boost: 0.88, style: 0.05 }
-  },
-  {
-    id: 'VR6AewLTigWG4xSOukaG', name: 'Arnold', emoji: '👨',
-    tag: 'Male · Crisp & Direct',
-    desc: 'Sharp and precise. Fast, clear alerts.',
-    preview: "Hello, I'm Arnold.",
-    settings: { stability: 0.68, similarity_boost: 0.80, style: 0.18 }
-  }
+  { id:'EXAVITQu4vr4xnSDxMaL', name:'Bella',  emoji:'👩', tag:'Female · Soft & Gentle',     desc:'Warm and soothing.',   preview:"Hello, I'm Bella.",  settings:{stability:0.60,similarity_boost:0.75,style:0.25} },
+  { id:'pFZP5JQG7iQjIQuC4Bku', name:'Lily',   emoji:'👩', tag:'Female · Bright & Energetic', desc:'Upbeat and lively.',   preview:"Hello, I'm Lily.",   settings:{stability:0.45,similarity_boost:0.85,style:0.40} },
+  { id:'pNInz6obpgDQGcFmaJgB', name:'Adam',   emoji:'👨', tag:'Male · Deep & Authoritative', desc:'Bold and commanding.', preview:"Hello, I'm Adam.",   settings:{stability:0.82,similarity_boost:0.88,style:0.05} },
+  { id:'VR6AewLTigWG4xSOukaG', name:'Arnold', emoji:'👨', tag:'Male · Crisp & Direct',       desc:'Sharp and precise.',   preview:"Hello, I'm Arnold.", settings:{stability:0.68,similarity_boost:0.80,style:0.18} }
 ];
+const VALID_IDS  = VOICES.map(v => v.id);
+const savedVoice = localStorage.getItem('voice_id');
+let selectedVoiceId = (savedVoice && VALID_IDS.includes(savedVoice)) ? savedVoice : 'pFZP5JQG7iQjIQuC4Bku';
 
 // ── STATE ─────────────────────────────────────────────────────
-const VALID_VOICE_IDS = ['EXAVITQu4vr4xnSDxMaL','pFZP5JQG7iQjIQuC4Bku','pNInz6obpgDQGcFmaJgB','VR6AewLTigWG4xSOukaG'];
-const savedVoice = localStorage.getItem('voice_id');
-let selectedVoiceId = (savedVoice && VALID_VOICE_IDS.includes(savedVoice)) ? savedVoice : 'pFZP5JQG7iQjIQuC4Bku'; // default Lily
-let previewAudio      = null;
-let stream            = null;
-let scanInterval      = null;
-let facingMode        = 'environment';
-let intervalMs        = 4000;
-let frameCount        = 0;
-let userLocation      = null;
-let commandMode       = false;
-let wakeActive        = false;
-let wakeRecog         = null;
-let isScanning        = false;
-let scanAbort         = null;
-let navActive         = false;
-let navSteps          = [];
-let navStepIndex      = 0;
-let navDest           = null;
-let navDestName       = '';
-let lastAnnouncedStep = -1;
-let geoWatchId        = null;
-let cachedAddress     = null;
-const hapticPrefs     = { warning: 'single', urgent: 'triple', nav: 'nav' };
-const conversationHistory = []; // keeps last N turns for context
+let stream = null, scanInterval = null, facingMode = 'environment';
+let intervalMs = 4000, frameCount = 0, userLocation = null;
+let commandMode = false, wakeActive = false, wakeRecog = null;
+let isScanning = false, scanAbort = null;
+let navActive = false, navSteps = [], navStepIndex = 0;
+let navDest = null, navDestName = '', lastAnnouncedStep = -1;
+let geoWatchId = null, cachedAddress = null;
+const conversationHistory = [];
 
 // ── DOM ───────────────────────────────────────────────────────
 const video          = document.getElementById('video');
@@ -347,7 +253,135 @@ const navTotalEl     = document.getElementById('navTotal');
 const navStepEl      = document.getElementById('navStep');
 const navStepDistEl  = document.getElementById('navStepDist');
 
-// ── BUILD VOICE GRID ──────────────────────────────────────────
+// ════════════════════════════════════════════════════════════════
+// AUDIO CONTEXT — single shared instance with iOS keep-alive
+// ════════════════════════════════════════════════════════════════
+let actx = null, keepAliveTimer = null;
+
+function createActx() {
+  actx = new (window.AudioContext || window.webkitAudioContext)();
+  startKeepAlive();
+  return actx;
+}
+
+// Await resume() with 500ms timeout — if iOS hangs, recreate context
+async function resumeActx() {
+  if (!actx || actx.state === 'closed') createActx();
+  if (actx.state === 'running') return;
+  try {
+    await Promise.race([
+      actx.resume(),
+      new Promise((_, r) => setTimeout(() => r(new Error('resume timeout')), 500))
+    ]);
+  } catch {
+    try { actx.close(); } catch {}
+    createActx();
+  }
+}
+
+// Silent ping every 20s — prevents iOS from suspending the context
+function startKeepAlive() {
+  stopKeepAlive();
+  keepAliveTimer = setInterval(() => {
+    if (!actx || actx.state === 'closed') return;
+    try {
+      if (actx.state === 'suspended') actx.resume();
+      const buf = actx.createBuffer(1, 1, actx.sampleRate);
+      const src = actx.createBufferSource();
+      const gain = actx.createGain();
+      gain.gain.value = 0; // completely silent
+      src.buffer = buf; src.connect(gain); gain.connect(actx.destination); src.start(0);
+    } catch {}
+  }, 20000);
+}
+
+function stopKeepAlive() {
+  if (keepAliveTimer) { clearInterval(keepAliveTimer); keepAliveTimer = null; }
+}
+
+// Must be called on a user gesture (START tap) to unlock iOS audio
+function unlockAudio() {
+  if (actx) return;
+  createActx();
+  try {
+    const buf = actx.createBuffer(1, 1, actx.sampleRate);
+    const src = actx.createBufferSource();
+    src.buffer = buf; src.connect(actx.destination); src.start(0);
+  } catch {}
+  try { const u = new SpeechSynthesisUtterance(''); u.volume = 0; window.speechSynthesis.speak(u); } catch {}
+}
+
+// ════════════════════════════════════════════════════════════════
+// SPEECH ENGINE — pure Web Audio, no HTMLMediaElement
+// ════════════════════════════════════════════════════════════════
+let isSpeaking = false, currentSrc = null;
+const speakQueue = [];
+
+function speak(text) {
+  return new Promise(resolve => {
+    speakQueue.push({ text, resolve });
+    if (!isSpeaking) processQueue();
+  });
+}
+
+async function processQueue() {
+  if (!speakQueue.length) { isSpeaking = false; return; }
+  isSpeaking = true;
+  const { text, resolve } = speakQueue.shift();
+  // Read selectedVoiceId NOW — picks up any voice change made in settings
+  const voice = VOICES.find(v => v.id === selectedVoiceId) || VOICES[0];
+
+  try {
+    const res = await fetch(`${BACKEND}/tts/stream`, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' },
+      body:    JSON.stringify({ text, voice_id: voice.id, voice_settings: voice.settings })
+    });
+    if (!res.ok) throw new Error(`TTS ${res.status}`);
+
+    const arrayBuffer = await res.arrayBuffer();
+
+    // Ensure context is running BEFORE decode — this is the iOS fix
+    await resumeActx();
+
+    const audioBuffer = await actx.decodeAudioData(arrayBuffer);
+
+    await new Promise(done => {
+      const src  = actx.createBufferSource();
+      const gain = actx.createGain();
+      gain.gain.value = 1.5;
+      src.buffer = audioBuffer;
+      src.connect(gain);
+      gain.connect(actx.destination);
+      currentSrc  = src;
+      src.onended = () => { currentSrc = null; done(); };
+      src.start(0);
+    });
+
+  } catch (e) {
+    console.warn('ElevenLabs failed, browser TTS:', e.message);
+    await new Promise(done => speakBrowser(text, done));
+  }
+
+  resolve();
+  processQueue();
+}
+
+function cancelSpeech() {
+  speakQueue.length = 0; isSpeaking = false;
+  try { if (currentSrc) { currentSrc.stop(); currentSrc = null; } } catch {}
+  try { window.speechSynthesis.cancel(); } catch {}
+}
+
+function speakBrowser(text, cb) {
+  if (!window.speechSynthesis) { cb?.(); return; }
+  const utt = new SpeechSynthesisUtterance(text);
+  utt.rate = 1.0; utt.volume = 1.0;
+  utt.onend = () => cb?.(); utt.onerror = () => cb?.();
+  window.speechSynthesis.speak(utt);
+}
+
+// ── VOICE GRID ────────────────────────────────────────────────
 function buildVoiceGrid() {
   const grid = document.getElementById('voiceGrid');
   grid.innerHTML = '';
@@ -356,29 +390,19 @@ function buildVoiceGrid() {
     card.className = 'voice-card' + (v.id === selectedVoiceId ? ' active' : '');
     card.dataset.voiceId = v.id;
     card.innerHTML = `
-      <div class="voice-card-top">
-        <span style="font-size:18px">${v.emoji}</span>
-        <span class="voice-card-name">${v.name}</span>
-      </div>
+      <div class="voice-card-top"><span style="font-size:18px">${v.emoji}</span><span class="voice-card-name">${v.name}</span></div>
       <div class="voice-card-tag">${v.tag}</div>
-      <div class="voice-card-desc">${v.desc}</div>
-    `;
+      <div class="voice-card-desc">${v.desc}</div>`;
     card.addEventListener('click', () => previewVoice(v.id));
     grid.appendChild(card);
   });
 }
 
 async function previewVoice(voiceId) {
-  // unlock audio on user gesture first
-  try { getHapticCtx(); } catch {}
-  try { const u = new SpeechSynthesisUtterance(''); u.volume = 0; window.speechSynthesis.speak(u); } catch {}
-
   document.querySelectorAll('.voice-card').forEach(c => c.classList.toggle('active', c.dataset.voiceId === voiceId));
   selectedVoiceId = voiceId;
   localStorage.setItem('voice_id', voiceId);
-
-  if (previewAudio) { previewAudio.pause(); previewAudio = null; }
-  window.speechSynthesis.cancel();
+  cancelSpeech();
 
   const voice  = VOICES.find(v => v.id === voiceId);
   const status = document.getElementById('voicePreviewStatus');
@@ -386,41 +410,21 @@ async function previewVoice(voiceId) {
 
   try {
     const res = await fetch(`${BACKEND}/tts/stream`, {
-      method: 'POST',
+      method:  'POST',
       headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' },
-      body: JSON.stringify({ text: voice.preview, voice_id: voiceId, voice_settings: voice.settings })
+      body:    JSON.stringify({ text: voice.preview, voice_id: voiceId, voice_settings: voice.settings })
     });
-    if (!res.ok) {
-      const err = await res.text();
-      throw new Error(`${res.status}: ${err}`);
-    }
-    const blob = await res.blob();
-    const url  = URL.createObjectURL(blob);
-    previewAudio = new Audio(url);
-    previewAudio.volume = 1.0;
-    try {
-      const actx   = getHapticCtx();
-      const source = actx.createMediaElementSource(previewAudio);
-      const gain   = actx.createGain();
-      gain.gain.value = 3.0;
-      source.connect(gain);
-      gain.connect(actx.destination);
-    } catch(e) {}
-    previewAudio.onended = () => { status.textContent = `${voice.name} selected ✓`; previewAudio = null; URL.revokeObjectURL(url); };
-    previewAudio.onerror = () => { status.textContent = `Audio error — using browser voice`; speakBrowser(voice.preview, ()=>{}); };
-    const playPromise = previewAudio.play();
-    if (playPromise !== undefined) {
-      playPromise
-        .then(() => { status.textContent = `Playing ${voice.name}…`; })
-        .catch(e => {
-          console.error('Play blocked:', e);
-          status.textContent = `Tap again to play ${voice.name}`;
-          // second attempt via speakBrowser as fallback
-          speakBrowser(voice.preview, () => { status.textContent = `${voice.name} selected ✓`; });
-        });
-    }
-  } catch(e) {
-    console.error('TTS error:', e);
+    if (!res.ok) throw new Error(`${res.status}`);
+    const arrayBuffer = await res.arrayBuffer();
+    await resumeActx();
+    const audioBuffer = await actx.decodeAudioData(arrayBuffer);
+    status.textContent = `Playing ${voice.name}…`;
+    const src = actx.createBufferSource(), gain = actx.createGain();
+    gain.gain.value = 1.5;
+    src.buffer = audioBuffer; src.connect(gain); gain.connect(actx.destination);
+    src.onended = () => { status.textContent = `${voice.name} selected ✓`; };
+    src.start(0);
+  } catch (e) {
     status.textContent = `Backend error — using browser voice`;
     speakBrowser(voice.preview, () => { status.textContent = `${voice.name} selected (browser voice)`; });
   }
@@ -428,14 +432,9 @@ async function previewVoice(voiceId) {
 
 buildVoiceGrid();
 
-// ── SETTINGS PANEL ────────────────────────────────────────────
-document.getElementById('btnSettings').addEventListener('click', () => {
-  buildVoiceGrid();
-  document.getElementById('settingsOverlay').classList.add('visible');
-});
-document.getElementById('btnCloseSettings').addEventListener('click', () => {
-  document.getElementById('settingsOverlay').classList.remove('visible');
-});
+// ── SETTINGS ─────────────────────────────────────────────────
+document.getElementById('btnSettings').addEventListener('click', () => { buildVoiceGrid(); document.getElementById('settingsOverlay').classList.add('visible'); });
+document.getElementById('btnCloseSettings').addEventListener('click', () => document.getElementById('settingsOverlay').classList.remove('visible'));
 document.querySelectorAll('.ipill').forEach(pill => {
   pill.addEventListener('click', () => {
     document.querySelectorAll('.ipill').forEach(p => p.classList.remove('active'));
@@ -445,51 +444,59 @@ document.querySelectorAll('.ipill').forEach(pill => {
   });
 });
 document.getElementById('btnStopNav').addEventListener('click', stopNavigation);
-document.querySelectorAll('.haptic-option[data-pattern]').forEach(opt => {
-  opt.addEventListener('click', () => {
-    const target = opt.dataset.target, pattern = opt.dataset.pattern;
-    document.querySelectorAll(`.haptic-option[data-target="${target}"]`).forEach(o => o.classList.remove('active'));
-    opt.classList.add('active');
-    hapticPrefs[target] = pattern;
-    vibrate(pattern);
-  });
-});
 
-// ── LOCATION ──────────────────────────────────────────────────
+// ── HAPTIC ────────────────────────────────────────────────────
+const PATTERNS = { single:[150], double:[150,100,150], triple:[100,80,100,80,100], long:[600], nav:[400,100,400], arrived:[1200,200,1200] };
+function vibrateOnce(ms) {
+  if (navigator.vibrate) { navigator.vibrate(ms); return; }
+  if (!actx) return;
+  try {
+    const sr=actx.sampleRate, len=Math.ceil(sr*.015), buf=actx.createBuffer(1,len,sr), d=buf.getChannelData(0);
+    for (let i=0;i<len;i++) d[i]=(i<len*.4?1:-.5)*Math.exp(-i/(sr*.003));
+    const src=actx.createBufferSource(), g=actx.createGain();
+    src.buffer=buf; g.gain.value=4; src.connect(g); g.connect(actx.destination); src.start(actx.currentTime);
+  } catch {}
+}
+function vibrate(pattern) { const seq=PATTERNS[pattern]||[150]; let d=0,on=true; seq.forEach(ms=>{if(on)setTimeout(()=>vibrateOnce(ms),d);d+=ms;on=!on;}); }
+function hapticForLevel(level) { if(level==='urgent')vibrate('triple'); else if(level==='warning')vibrate('single'); }
+
+// ── LOCATION ─────────────────────────────────────────────────
 async function updateAddress(lat, lng) {
   try {
-    const geo = await fetch(`${BACKEND}/location/address?lat=${lat}&lng=${lng}`, { headers: { 'ngrok-skip-browser-warning': 'true' } });
-    const geoData = await geo.json();
-    if (geoData.address && geoData.address !== 'Unknown location') {
-      cachedAddress = geoData.address;
-    } else {
-      cachedAddress = `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
-    }
+    const r = await fetch(`${BACKEND}/location/address?lat=${lat}&lng=${lng}`, { headers:{'ngrok-skip-browser-warning':'true'} });
+    const d = await r.json();
+    cachedAddress = (d.address && d.address !== 'Unknown location') ? d.address : `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
   } catch { cachedAddress = `${lat.toFixed(4)}, ${lng.toFixed(4)}`; }
   return cachedAddress;
 }
 
 function initLocation() {
-  if (!navigator.geolocation) { showAlert('warning', 'GPS not supported.'); return; }
+  if (!navigator.geolocation) { showAlert('warning','GPS not supported.'); return; }
   if (geoWatchId !== null) return;
-  navigator.geolocation.getCurrentPosition(async (pos) => {
+  navigator.geolocation.getCurrentPosition(async pos => {
     userLocation = { lat: pos.coords.latitude, lng: pos.coords.longitude };
     const addr = await updateAddress(userLocation.lat, userLocation.lng);
     showAlert('safe', `📍 ${addr}`);
     geoWatchId = navigator.geolocation.watchPosition(
-      async (pos) => {
-        const newLat = pos.coords.latitude, newLng = pos.coords.longitude;
-        userLocation = { lat: newLat, lng: newLng };
-        // update address every time GPS moves
-        await updateAddress(newLat, newLng);
+      async pos => {
+        userLocation = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+        await updateAddress(userLocation.lat, userLocation.lng);
         if (navActive) checkNavProgress();
       },
-      (err) => { const m={1:'Location denied.',2:'GPS unavailable.',3:'GPS timed out.'}; showAlert('warning', m[err.code]||'GPS error.'); if(err.code===3){geoWatchId=null;setTimeout(initLocation,4000);} },
-      { enableHighAccuracy: true, maximumAge: 0, timeout: 20000 }
+      err => {
+        const m = {1:'Location denied.',2:'GPS unavailable.',3:'GPS timed out.'};
+        showAlert('warning', m[err.code]||'GPS error.');
+        if (err.code===3) { if(geoWatchId!==null){navigator.geolocation.clearWatch(geoWatchId);geoWatchId=null;} setTimeout(initLocation,4000); }
+      },
+      { enableHighAccuracy:true, maximumAge:0, timeout:20000 }
     );
   },
-  (err) => { const m={1:'Location denied.',2:'GPS unavailable.',3:'GPS timed out.'}; showAlert('warning', m[err.code]||'GPS failed.'); if(err.code===3)setTimeout(initLocation,4000); },
-  { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 });
+  err => {
+    const m = {1:'Location denied.',2:'GPS unavailable.',3:'GPS timed out.'};
+    showAlert('warning', m[err.code]||'GPS failed.');
+    if (err.code===3) setTimeout(initLocation,4000);
+  },
+  { enableHighAccuracy:true, timeout:15000, maximumAge:0 });
 }
 
 function haversine(lat1,lng1,lat2,lng2){const R=6371000,p1=lat1*Math.PI/180,p2=lat2*Math.PI/180,dp=(lat2-lat1)*Math.PI/180,dl=(lng2-lng1)*Math.PI/180,a=Math.sin(dp/2)**2+Math.cos(p1)*Math.cos(p2)*Math.sin(dl/2)**2;return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));}
@@ -497,311 +504,210 @@ function haversine(lat1,lng1,lat2,lng2){const R=6371000,p1=lat1*Math.PI/180,p2=l
 // ── CAMERA ────────────────────────────────────────────────────
 async function startCamera() {
   try {
-    if (stream) stream.getTracks().forEach(t => t.stop());
-    stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode, width:{ideal:1280}, height:{ideal:720} }, audio: false });
-    video.srcObject = stream; noCam.style.display = 'none'; return true;
-  } catch { showAlert('urgent', 'Camera access denied.'); return false; }
+    if (stream) stream.getTracks().forEach(t=>t.stop());
+    stream = await navigator.mediaDevices.getUserMedia({ video:{facingMode,width:{ideal:1280},height:{ideal:720}}, audio:false });
+    video.srcObject=stream; noCam.style.display='none'; return true;
+  } catch { showAlert('urgent','Camera access denied.'); return false; }
 }
-btnFlip.addEventListener('click', async () => { facingMode = facingMode === 'environment' ? 'user' : 'environment'; await startCamera(); });
+btnFlip.addEventListener('click', async () => { facingMode=facingMode==='environment'?'user':'environment'; await startCamera(); });
 
 function captureFrame() {
-  canvas.width = video.videoWidth||640; canvas.height = video.videoHeight||480;
+  canvas.width=video.videoWidth||640; canvas.height=video.videoHeight||480;
   ctx.drawImage(video,0,0);
-  const scale=Math.min(1,512/canvas.width), w=Math.round(canvas.width*scale), h=Math.round(canvas.height*scale);
-  const small=document.createElement('canvas'); small.width=w; small.height=h;
-  small.getContext('2d').drawImage(canvas,0,0,w,h);
-  return small.toDataURL('image/jpeg',0.7).split(',')[1];
+  const scale=Math.min(1,512/canvas.width),w=Math.round(canvas.width*scale),h=Math.round(canvas.height*scale);
+  const s=document.createElement('canvas'); s.width=w; s.height=h;
+  s.getContext('2d').drawImage(canvas,0,0,w,h);
+  return s.toDataURL('image/jpeg',0.7).split(',')[1];
 }
 
 async function analyzeFrame(b64, signal) {
-  const res = await fetch(`${BACKEND}/analyze`, { method:'POST', headers:{'Content-Type':'application/json','ngrok-skip-browser-warning':'true'}, body:JSON.stringify({image:b64}), signal });
-  if (!res.ok) throw new Error(`${res.status}`);
+  const res=await fetch(`${BACKEND}/analyze`,{method:'POST',headers:{'Content-Type':'application/json','ngrok-skip-browser-warning':'true'},body:JSON.stringify({image:b64}),signal});
+  if(!res.ok) throw new Error(`${res.status}`);
   return await res.json();
 }
 
-// ── HAPTIC ────────────────────────────────────────────────────
-const PATTERNS = { single:[150], double:[150,100,150], triple:[100,80,100,80,100], long:[600], nav:[400,100,400], arrived:[1200,200,1200] };
-let hapticCtx = null;
-function getHapticCtx() { if (!hapticCtx) hapticCtx=new(window.AudioContext||window.webkitAudioContext)(); if(hapticCtx.state==='suspended')hapticCtx.resume(); return hapticCtx; }
-function vibrateOnce(ms) {
-  if (navigator.vibrate) { navigator.vibrate(ms); return; }
-  try { const c=getHapticCtx(),sr=c.sampleRate,len=Math.ceil(sr*.015),buf=c.createBuffer(1,len,sr),d=buf.getChannelData(0); for(let i=0;i<len;i++)d[i]=(i<len*.4?1:-.5)*Math.exp(-i/(sr*.003)); const src=c.createBufferSource(),gain=c.createGain(); src.buffer=buf; gain.gain.value=4; src.connect(gain); gain.connect(c.destination); src.start(c.currentTime); } catch {}
-}
-function vibrate(pattern) { const seq=PATTERNS[pattern]||[150]; let delay=0,isOn=true; seq.forEach(ms=>{if(isOn)setTimeout(()=>vibrateOnce(ms),delay);delay+=ms;isOn=!isOn;}); }
-function hapticForLevel(level) {
-  if (level==='urgent')  vibrate(hapticPrefs.urgent);
-  if (level==='warning') vibrate(hapticPrefs.warning);
-}
-
-// ── SPEECH — ElevenLabs via backend, unlocked on first user tap ──
-let isSpeaking   = false;
-let audioUnlocked = false;
-const speakQueue  = [];
-
-// Call this on any user gesture to unlock audio playback on iOS
-function unlockAudio() {
-  if (audioUnlocked) return;
-  audioUnlocked = true;
-  try {
-    // play a silent audio blob to unlock the audio context
-    const ctx  = new (window.AudioContext || window.webkitAudioContext)();
-    const buf  = ctx.createBuffer(1, 1, 22050);
-    const src  = ctx.createBufferSource();
-    src.buffer = buf;
-    src.connect(ctx.destination);
-    src.start(0);
-    ctx.resume();
-  } catch {}
-  try {
-    const u = new SpeechSynthesisUtterance(''); u.volume = 0;
-    window.speechSynthesis.speak(u);
-  } catch {}
-}
-
-function speak(text) { return new Promise(resolve => { speakQueue.push({text,resolve}); if(!isSpeaking) processQueue(); }); }
-
-function processQueue() {
-  if (!speakQueue.length) { isSpeaking=false; return; }
-  isSpeaking = true;
-  const {text, resolve} = speakQueue.shift();
-  const voice = VOICES.find(v => v.id === selectedVoiceId) || VOICES[0];
-
-  fetch(`${BACKEND}/tts/stream`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' },
-    body: JSON.stringify({ text, voice_id: voice.id, voice_settings: voice.settings })
-  }).then(res => {
-    if (!res.ok) { console.error('TTS failed:', res.status); return Promise.reject(); }
-    return res.blob();
-  }).then(blob => {
-    const url   = URL.createObjectURL(blob);
-    const audio = new Audio(url);
-    audio.volume = 1.0;
-    audio.onended = () => { resolve(); processQueue(); URL.revokeObjectURL(url); };
-    audio.onerror = () => { URL.revokeObjectURL(url); speakBrowser(text, () => { resolve(); processQueue(); }); };
-    // play — works because audio was unlocked on START button tap
-    audio.play().then(() => {
-      // try to boost volume via gain node after play starts
-      try {
-        const actx   = new (window.AudioContext || window.webkitAudioContext)();
-        actx.resume().then(() => {
-          const src  = actx.createMediaElementSource(audio);
-          const gain = actx.createGain();
-          gain.gain.value = 3.0;
-          src.connect(gain);
-          gain.connect(actx.destination);
-        });
-      } catch {}
-    }).catch(e => {
-      console.warn('ElevenLabs play failed:', e.message);
-      URL.revokeObjectURL(url);
-      speakBrowser(text, () => { resolve(); processQueue(); });
-    });
-  }).catch(() => speakBrowser(text, () => { resolve(); processQueue(); }));
-}
-
-function speakBrowser(text, cb) {
-  if (!window.speechSynthesis) { cb?.(); return; }
-  const utt = new SpeechSynthesisUtterance(text); utt.rate=1.0; utt.volume=1.0;
-  utt.onend = () => cb?.(); utt.onerror = () => cb?.();
-  window.speechSynthesis.speak(utt);
-}
-
-function cancelSpeech() { speakQueue.length=0; isSpeaking=false; window.speechSynthesis?.cancel(); }
-
 // ── UI ────────────────────────────────────────────────────────
-function setGlow(state) { glowBorder.className = state; }
-function setStatus(state, label) { statusPill.className='status-pill '+state; statusPill.textContent=label||state.toUpperCase(); }
-function showAlert(level, message) {
+function setGlow(s)       { glowBorder.className=s; }
+function setStatus(s,lbl) { statusPill.className='status-pill '+s; statusPill.textContent=lbl||s.toUpperCase(); }
+function showAlert(level,message) {
   alertBox.className=`visible ${level}`; alertTypeEl.textContent=level.toUpperCase();
   alertMsgEl.textContent=message; alertTimeEl.textContent=new Date().toLocaleTimeString();
-  if (!navActive) {
+  if(!navActive){
     if(level==='urgent') setGlow('urgent');
     else if(level==='warning') setGlow('warning');
     else setGlow('idle');
-    if(level!=='urgent') setTimeout(()=>{ if(!commandMode&&!navActive) setGlow('idle'); },3000);
+    if(level!=='urgent') setTimeout(()=>{if(!commandMode&&!navActive)setGlow('idle');},3000);
   }
 }
 
 // ── SCAN LOOP ─────────────────────────────────────────────────
 async function doScan() {
-  if (commandMode||isScanning) return;
+  if(commandMode||isScanning) return;
   isScanning=true; scanAbort=new AbortController();
   scanLine.classList.add('running');
-  if (!navActive) setStatus('scanning','SCANNING');
+  if(!navActive) setStatus('scanning','SCANNING');
   try {
     const b64=captureFrame(), result=await analyzeFrame(b64,scanAbort.signal);
-    if (commandMode) return;
+    if(commandMode) return;
     frameCount++; frameCountEl.textContent=`FRAMES ANALYZED: ${frameCount}`;
     showAlert(result.level,result.message); hapticForLevel(result.level);
-    if (userLocation) fetch(`${BACKEND}/location/update`,{method:'POST',headers:{'Content-Type':'application/json','ngrok-skip-browser-warning':'true'},body:JSON.stringify({...userLocation,level:result.level,message:result.message})}).catch(()=>{});
+    if(userLocation) fetch(`${BACKEND}/location/update`,{method:'POST',headers:{'Content-Type':'application/json','ngrok-skip-browser-warning':'true'},body:JSON.stringify({...userLocation,level:result.level,message:result.message})}).catch(()=>{});
     const voiceOn=document.getElementById('voiceAlerts').checked, silent=document.getElementById('silentSafe').checked;
-    if (voiceOn&&!commandMode&&(result.level!=='safe'||!silent)) speak(result.message);
-  } catch(e) { if(e.name!=='AbortError'&&!commandMode) showAlert('urgent',`Error: ${e.message}`); }
+    if(voiceOn&&!commandMode&&(result.level!=='safe'||!silent)) speak(result.message);
+  } catch(e){ if(e.name!=='AbortError'&&!commandMode) showAlert('urgent',`Error: ${e.message}`); }
   finally { isScanning=false; scanAbort=null; scanLine.classList.remove('running'); if(!commandMode&&!navActive) setStatus('active','LIVE'); }
 }
 
 // ── START / STOP ──────────────────────────────────────────────
 btnStart.addEventListener('click', async () => {
-  unlockAudio(); // unlock audio on user gesture — must be first
-  try { getHapticCtx(); } catch {}
-  const ok = await startCamera(); if (!ok) return;
-  initLocation(); // start GPS immediately, no delay
+  unlockAudio(); // creates + unlocks AudioContext on this user gesture
+  const ok=await startCamera(); if(!ok) return;
+  initLocation();
   btnStart.style.display='none'; btnStop.style.display='flex';
   setStatus('active','LIVE');
   showAlert('safe','BirdBox active. Say "Hey BirdBox" anytime.');
   wakeHint.classList.remove('hidden'); setTimeout(()=>wakeHint.classList.add('hidden'),4000);
   startWakeLoop(); await doScan();
-  scanInterval = setInterval(doScan, intervalMs);
+  scanInterval=setInterval(doScan,intervalMs);
 });
 
-btnStop.addEventListener('click', () => {
+btnStop.addEventListener('click', ()=>{
   clearInterval(scanInterval); scanInterval=null;
-  stopWakeLoop(); stopNavigation();
-  if (stream) stream.getTracks().forEach(t=>t.stop());
+  stopWakeLoop(); stopNavigation(); stopKeepAlive();
+  if(stream) stream.getTracks().forEach(t=>t.stop());
   stream=null; video.srcObject=null;
   noCam.style.display='flex'; btnStop.style.display='none'; btnStart.style.display='flex';
   setStatus('','OFFLINE'); setGlow('idle'); alertBox.className=''; cancelSpeech();
 });
 
 // ── WAKE WORD ─────────────────────────────────────────────────
-function startWakeLoop() { if(!('webkitSpeechRecognition' in window||'SpeechRecognition' in window))return; wakeActive=true; runWakeSession(); }
-function stopWakeLoop() { wakeActive=false; if(wakeRecog){try{wakeRecog.stop();}catch{}wakeRecog=null;} }
-function runWakeSession() {
-  if (!wakeActive||commandMode) return;
+function startWakeLoop(){ if(!('webkitSpeechRecognition' in window||'SpeechRecognition' in window))return; wakeActive=true; runWakeSession(); }
+function stopWakeLoop(){ wakeActive=false; if(wakeRecog){try{wakeRecog.stop();}catch{}wakeRecog=null;} }
+function runWakeSession(){
+  if(!wakeActive||commandMode) return;
   const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
   wakeRecog=new SR(); wakeRecog.continuous=false; wakeRecog.interimResults=true; wakeRecog.lang='en-US'; wakeRecog.maxAlternatives=3;
-  wakeRecog.onresult=(e)=>{ for(let i=0;i<e.results.length;i++) for(let j=0;j<e.results[i].length;j++){const t=e.results[i][j].transcript.toLowerCase().trim(); if(WAKE_WORDS.some(w=>t.includes(w))){wakeRecog.abort();if(!commandMode)activateCommand();return;}} };
-  wakeRecog.onend=()=>{ if(wakeActive&&!commandMode)setTimeout(runWakeSession,300); };
-  wakeRecog.onerror=(e)=>{ if(e.error!=='aborted'&&wakeActive&&!commandMode)setTimeout(runWakeSession,1000); };
+  wakeRecog.onresult=e=>{ for(let i=0;i<e.results.length;i++) for(let j=0;j<e.results[i].length;j++){const t=e.results[i][j].transcript.toLowerCase().trim(); if(WAKE_WORDS.some(w=>t.includes(w))){wakeRecog.abort();if(!commandMode)activateCommand();return;}} };
+  wakeRecog.onend=()=>{ if(wakeActive&&!commandMode) setTimeout(runWakeSession,300); };
+  wakeRecog.onerror=e=>{ if(e.error!=='aborted'&&wakeActive&&!commandMode) setTimeout(runWakeSession,1000); };
   try{wakeRecog.start();}catch{setTimeout(runWakeSession,1000);}
 }
 
 // ── COMMAND MODE ──────────────────────────────────────────────
-function playChime() {
-  try { const actx=new(window.AudioContext||window.webkitAudioContext)(); [880,1100].forEach((freq,i)=>{ const osc=actx.createOscillator(),gain=actx.createGain(); osc.connect(gain);gain.connect(actx.destination);osc.frequency.value=freq; const t=actx.currentTime+i*.15; gain.gain.setValueAtTime(.25,t);gain.gain.exponentialRampToValueAtTime(.001,t+.25);osc.start(t);osc.stop(t+.25); }); } catch {}
+function playChime(){
+  if(!actx) return;
+  try{
+    [880,1100].forEach((freq,i)=>{
+      const osc=actx.createOscillator(), gain=actx.createGain();
+      osc.connect(gain); gain.connect(actx.destination); osc.frequency.value=freq;
+      const t=actx.currentTime+i*.15;
+      gain.gain.setValueAtTime(.3,t); gain.gain.exponentialRampToValueAtTime(.001,t+.3);
+      osc.start(t); osc.stop(t+.3);
+    });
+  }catch{}
 }
-function activateCommand() {
+
+function activateCommand(){
   commandMode=true; if(scanAbort){scanAbort.abort();scanAbort=null;} cancelSpeech();
   vibrate('single'); playChime(); setGlow('listening'); setStatus('listening','LISTENING');
   voiceBox.classList.add('visible'); userTranscript.textContent=''; aiTranscript.textContent='Listening...';
   const SR=window.SpeechRecognition||window.webkitSpeechRecognition, cmd=new SR();
   cmd.continuous=false; cmd.interimResults=false; cmd.lang='en-US'; cmd.maxAlternatives=1;
   let gotResult=false;
-  cmd.onresult=async(e)=>{ gotResult=true; const text=e.results[0][0].transcript; userTranscript.textContent=`You: ${text}`; aiTranscript.textContent='Thinking...'; setGlow('speaking'); setStatus('speaking','RESPONDING'); await handleVoiceCommand(text); endCommand(); };
-  cmd.onerror=()=>{ if(!gotResult)endCommand(); };
-  cmd.onend=()=>{ if(!gotResult)endCommand(); };
+  cmd.onresult=async e=>{ gotResult=true; const text=e.results[0][0].transcript; userTranscript.textContent=`You: ${text}`; aiTranscript.textContent='Thinking...'; setGlow('speaking'); setStatus('speaking','RESPONDING'); await handleVoiceCommand(text); endCommand(); };
+  cmd.onerror=()=>{ if(!gotResult) endCommand(); };
+  cmd.onend=()=>{ if(!gotResult) endCommand(); };
   setTimeout(()=>{ try{cmd.start();}catch{endCommand();} },300);
 }
-function endCommand() {
+
+function endCommand(){
   commandMode=false;
   if(navActive){setGlow('navigating');setStatus('navigating','NAVIGATING');}
   else{setGlow('idle');setStatus('active','LIVE');}
-  setTimeout(()=>{ voiceBox.classList.remove('visible'); if(wakeActive)runWakeSession(); },5000);
+  // Always return to wake-word listening — never auto-prompt
+  setTimeout(()=>{ voiceBox.classList.remove('visible'); if(wakeActive) runWakeSession(); },5000);
 }
 
 // ── VOICE COMMAND HANDLER ─────────────────────────────────────
-async function handleVoiceCommand(text) {
-  const lower = text.toLowerCase();
+async function handleVoiceCommand(text){
+  const lower=text.toLowerCase();
 
-  // navigation intent — catches: "nearest burger king", "closest pharmacy",
-  // "where is the library", "find me a coffee shop", "take me to subway", etc.
-  const navMatch = lower.match(
-    /(?:take me to|navigate to|go to|directions to|direct me to|bring me to|get me to|walk me to|lead me to|i want to go to|how do i get to|find me (?:a |an |the )?|find (?:a |an |the )?|nearest |closest |where is (?:the |a |an )?|where('s| is) (?:the |a |an )?|i need (?:a |an |the )?)\s*(.+)/i
-  );
-  if (navMatch) {
-    // last capture group has the place name
-    const query = (navMatch[2] || navMatch[1] || '').trim().replace(/\?+$/, '');
-    if (!query) { await speak('What place are you looking for?'); return; }
-
-    aiTranscript.textContent=`BirdBox: Getting your location...`;
-
-    // get fresh GPS position before searching
-    const freshLocation = await new Promise(resolve => {
-      if (!navigator.geolocation) { resolve(userLocation); return; }
+  // Navigation intent
+  const navMatch=lower.match(/(?:take me to|navigate to|go to|directions to|direct me to|bring me to|get me to|walk me to|lead me to|i want to go to|how do i get to|find me (?:a |an |the )?|find (?:a |an |the )?|nearest |closest |where is (?:the |a |an )?|where('s| is) (?:the |a |an )?|i need (?:a |an |the )?)\s*(.+)/i);
+  if(navMatch){
+    const query=(navMatch[2]||navMatch[1]||'').trim().replace(/\?+$/,'');
+    if(!query){await speak('What place are you looking for?');return;}
+    aiTranscript.textContent='BirdBox: Getting your location...';
+    const freshLocation=await new Promise(resolve=>{
+      if(!navigator.geolocation){resolve(userLocation);return;}
       navigator.geolocation.getCurrentPosition(
-        pos => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
-        () => resolve(userLocation), // fallback to cached
-        { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
+        pos=>resolve({lat:pos.coords.latitude,lng:pos.coords.longitude}),
+        ()=>resolve(userLocation),
+        {enableHighAccuracy:true,timeout:8000,maximumAge:0}
       );
     });
-
-    if (!freshLocation) {
-      await speak('I need your location first. Please enable GPS and try again.');
-      return;
-    }
-    userLocation = freshLocation;
-
+    if(!freshLocation){await speak('I need your location first. Please enable GPS and try again.');return;}
+    userLocation=freshLocation;
     aiTranscript.textContent=`BirdBox: Searching for ${query} nearby...`;
     await speak(`Searching for ${query} nearby.`);
-    try {
+    try{
       const res=await fetch(`${BACKEND}/navigate`,{method:'POST',headers:{'Content-Type':'application/json','ngrok-skip-browser-warning':'true'},body:JSON.stringify({query,user_lat:userLocation.lat,user_lng:userLocation.lng})});
       const data=await res.json();
-      if (!data.places?.length){aiTranscript.textContent=`BirdBox: Sorry, couldn't find ${query} nearby.`;await speak(`Sorry, I couldn't find ${query} nearby.`);return;}
-      window._navPlaces=data.places; window._navQuery=query;
-      aiTranscript.textContent=`BirdBox: ${data.speech}`; await speak(data.speech);
-      setTimeout(()=>{ if(!commandMode)listenForSelection(); },500);
-    } catch(e) { console.error('Nav error:', e); await speak('Sorry, there was an error searching for locations.'); }
+      if(!data.places?.length){aiTranscript.textContent=`BirdBox: Sorry, couldn't find ${query} nearby.`;await speak(`Sorry, I couldn't find ${query} nearby.`);return;}
+      window._navPlaces=data.places;
+      aiTranscript.textContent=`BirdBox: ${data.speech}`;
+      // Speak options then return to idle — user says "Hey BirdBox, option 1" to pick
+      await speak(data.speech);
+    }catch(e){console.error('Nav:',e);await speak('Sorry, there was an error searching for locations.');}
     return;
   }
 
-  // option selection
-  if (window._navPlaces && /option\s*[123]|first|second|third|one|two|three/i.test(lower)) {
+  // Option selection — triggered when user says "Hey BirdBox, option 1" etc
+  if(window._navPlaces&&/option\s*[123]|first|second|third|one|two|three/i.test(lower)){
     let idx=0; if(/option\s*2|second|two/i.test(lower))idx=1; if(/option\s*3|third|three/i.test(lower))idx=2;
     const place=window._navPlaces[idx]; if(place){window._navPlaces=null;await startNavigation(place);return;}
   }
 
-  // stop nav
-  if (/stop|cancel|end navigation/i.test(lower)) { stopNavigation(); await speak('Navigation stopped.'); return; }
+  // Stop navigation
+  if(/stop|cancel|end navigation/i.test(lower)){stopNavigation();await speak('Navigation stopped.');return;}
 
-  // general chat — routed through backend with conversation history
-  try {
-    // add user message to history
-    conversationHistory.push({ role: 'user', content: text });
-    // keep last 10 turns max to avoid token bloat
-    if (conversationHistory.length > 10) conversationHistory.splice(0, 2);
-
-    const res=await fetch(`${BACKEND}/chat/stream`,{
-      method:'POST',
-      headers:{'Content-Type':'application/json','ngrok-skip-browser-warning':'true'},
-      body:JSON.stringify({
-        message: text,
-        history: conversationHistory.slice(0, -1), // everything before current message
-        location: userLocation ? { lat: userLocation.lat, lng: userLocation.lng, address: cachedAddress } : null
-      })
-    });
-    if (!res.ok) {
-      const errText = await res.text();
-      console.error('Chat stream error:', res.status, errText);
-      aiTranscript.textContent = `BirdBox: Error ${res.status} — is the backend running?`;
-      await speakBrowser(`Sorry, the server returned an error.`, ()=>{});
-      return;
-    }
-    const reader=res.body.getReader(), decoder=new TextDecoder(); let reply='';
+  // General chat
+  try{
+    conversationHistory.push({role:'user',content:text});
+    if(conversationHistory.length>10) conversationHistory.splice(0,2);
+    const res=await fetch(`${BACKEND}/chat/stream`,{method:'POST',headers:{'Content-Type':'application/json','ngrok-skip-browser-warning':'true'},body:JSON.stringify({message:text,history:conversationHistory.slice(0,-1),location:userLocation?{lat:userLocation.lat,lng:userLocation.lng,address:cachedAddress}:null})});
+    if(!res.ok){aiTranscript.textContent=`BirdBox: Error ${res.status}`;speakBrowser('Sorry, server error.',()=>{});return;}
+    const reader=res.body.getReader(),decoder=new TextDecoder(); let reply='';
     while(true){
       const{done,value}=await reader.read(); if(done)break;
       for(const line of decoder.decode(value).split('\n')){
-        if(!line.startsWith('data: '))continue; const d=line.slice(6).trim(); if(d==='[DONE]')break;
+        if(!line.startsWith('data: '))continue;
+        const d=line.slice(6).trim(); if(d==='[DONE]')break;
         try{const j=JSON.parse(d);if(j.type==='content_block_delta'){reply+=j.delta?.text||'';aiTranscript.textContent=`BirdBox: ${reply}`;}}catch{}
       }
     }
-    if (reply) {
-      // save assistant reply to history
-      conversationHistory.push({ role: 'assistant', content: reply.trim() });
+    if(reply){
+      conversationHistory.push({role:'assistant',content:reply.trim()});
       const navTrigger=reply.match(/starting navigation to (.+)/i);
-      if(navTrigger&&userLocation){const q=navTrigger[1].replace(/[.!?]$/,'').trim();await speak(reply.trim());setTimeout(async()=>{await handleVoiceCommand(`navigate to ${q}`)},300);return;}
+      if(navTrigger&&userLocation){
+        const q=navTrigger[1].replace(/[.!?]$/,'').trim();
+        await speak(reply.trim());
+        setTimeout(async()=>{await handleVoiceCommand(`navigate to ${q}`);},300);
+        return;
+      }
       await speak(reply.trim());
+      // Log fire-and-forget
       fetch(`${BACKEND}/chat`,{method:'POST',headers:{'Content-Type':'application/json','ngrok-skip-browser-warning':'true'},body:JSON.stringify({message:text,location:null,log_only:true,ai_response:reply.trim()})}).catch(()=>{});
-      // no auto-prompt — user says "Hey BirdBox" to reply
+      // No auto-prompt — user says "Hey BirdBox" to continue
     }
-  } catch(e) { console.error('Chat error:', e); await speak('Sorry, I could not connect to the server.'); }
+  }catch(e){console.error('Chat:',e);await speak('Sorry, I could not connect to the server.');}
 }
 
 // ── NAVIGATION ────────────────────────────────────────────────
-async function startNavigation(place) {
+async function startNavigation(place){
   if(!userLocation){await speak('Location not available yet.');return;}
   await speak(`Starting navigation to ${place.name}.`);
-  try {
+  try{
     const res=await fetch(`${BACKEND}/directions?origin_lat=${userLocation.lat}&origin_lng=${userLocation.lng}&dest_lat=${place.lat}&dest_lng=${place.lng}`,{headers:{'ngrok-skip-browser-warning':'true'}});
     const data=await res.json();
     if(!data.steps?.length){await speak('Could not get directions.');return;}
@@ -809,18 +715,17 @@ async function startNavigation(place) {
     navDestEl.textContent=`→ ${place.name}`; navTotalEl.textContent=`${data.total_distance} · ${data.total_duration}`;
     navBar.classList.add('visible'); setGlow('navigating'); setStatus('navigating','NAVIGATING');
     await announceStep(0);
-  } catch { await speak('Sorry, could not load directions.'); }
+  }catch{await speak('Sorry, could not load directions.');}
 }
 
-async function announceStep(index) {
+async function announceStep(index){
   if(index>=navSteps.length)return;
   const step=navSteps[index]; lastAnnouncedStep=index;
   navStepEl.textContent=step.instruction; navStepDistEl.textContent=step.distance_text;
-  if(document.getElementById('hapticNav')?.checked) vibrate('nav');
-  await speak(step.instruction);
+  vibrate('nav'); await speak(step.instruction);
 }
 
-async function checkNavProgress() {
+async function checkNavProgress(){
   if(!navActive||!userLocation||navStepIndex>=navSteps.length)return;
   const step=navSteps[navStepIndex];
   const distToStep=haversine(userLocation.lat,userLocation.lng,step.end_lat,step.end_lng);
@@ -834,10 +739,10 @@ async function checkNavProgress() {
   }
 }
 
-function stopNavigation() {
+function stopNavigation(){
   navActive=false; navSteps=[]; navStepIndex=0; navDest=null;
   navBar.classList.remove('visible'); setGlow('idle');
-  if(stream)setStatus('active','LIVE'); window._navPlaces=null;
+  if(stream) setStatus('active','LIVE'); window._navPlaces=null;
 }
 </script>
 </body>
