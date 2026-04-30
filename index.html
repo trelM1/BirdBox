@@ -269,10 +269,24 @@
       <label class="toggle"><input type="checkbox" id="silentSafe" checked><span class="toggle-slider"></span></label>
     </div>
     <div class="setting-row" style="border:none">
-      <div><div class="setting-label-text">ElevenLabs Voice</div><div class="setting-desc">Natural AI voice</div></div>
+      <div><div class="setting-label-text">ElevenLabs Voice</div><div class="setting-desc">Natural AI voice (requires API key)</div></div>
       <label class="toggle"><input type="checkbox" id="useEleven"><span class="toggle-slider"></span></label>
     </div>
     <input class="settings-input" id="elevenKey" type="password" placeholder="ElevenLabs API key (optional)">
+
+    <!-- Voice picker -->
+    <div id="voicePicker" style="margin-top:10px">
+      <div class="setting-label-text" style="font-size:12px;margin-bottom:8px;color:var(--muted2)">Choose Voice</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        <div class="haptic-option" data-voice-id="21m00Tcm4TlvDq8ikWAM" data-voice-name="Rachel">👩 Rachel<span class="haptic-hint">Female · Calm</span></div>
+        <div class="haptic-option" data-voice-id="EXAVITQu4vr4xnSDxMaL" data-voice-name="Bella">👩 Bella<span class="haptic-hint">Female · Soft</span></div>
+        <div class="haptic-option active" data-voice-id="pFZP5JQG7iQjIQuC4Bku" data-voice-name="Lily">👩 Lily<span class="haptic-hint">Female · Warm</span></div>
+        <div class="haptic-option" data-voice-id="pNInz6obpgDQGcFmaJgB" data-voice-name="Adam">👨 Adam<span class="haptic-hint">Male · Deep</span></div>
+        <div class="haptic-option" data-voice-id="VR6AewLTigWG4xSOukaG" data-voice-name="Arnold">👨 Arnold<span class="haptic-hint">Male · Crisp</span></div>
+        <div class="haptic-option" data-voice-id="TxGEqnHWrfWFTfGW9XjX" data-voice-name="Josh">👨 Josh<span class="haptic-hint">Male · Young</span></div>
+      </div>
+    </div>
+
     <input class="settings-input" id="anthropicKey" type="password" placeholder="Anthropic API key (required for voice)" style="margin-top:8px">
   </div>
 </div>
@@ -493,44 +507,41 @@
     arrived: [1200, 200, 1200]
   };
 
-  const hapticPrefs = {
-    warning: 'single',
-    urgent:  'triple',
-    nav:     'nav'
-  };
+  const hapticPrefs = { warning: 'single', urgent: 'triple', nav: 'nav' };
+
+  let hapticCtx = null;
+  function getHapticCtx() {
+    if (!hapticCtx) hapticCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (hapticCtx.state === 'suspended') hapticCtx.resume();
+    return hapticCtx;
+  }
+
+  function vibrateOnce(durationMs) {
+    if (navigator.vibrate) { navigator.vibrate(durationMs); return; }
+    // iOS — sharp click to trigger Taptic Engine
+    try {
+      const ctx = getHapticCtx();
+      const sr  = ctx.sampleRate;
+      const len = Math.ceil(sr * 0.015);
+      const buf = ctx.createBuffer(1, len, sr);
+      const d   = buf.getChannelData(0);
+      for (let i = 0; i < len; i++) d[i] = (i < len * 0.4 ? 1 : -0.5) * Math.exp(-i / (sr * 0.003));
+      const src  = ctx.createBufferSource();
+      const gain = ctx.createGain();
+      src.buffer = buf;
+      gain.gain.value = 4.0;
+      src.connect(gain); gain.connect(ctx.destination);
+      src.start(ctx.currentTime);
+    } catch {}
+  }
 
   function vibrate(pattern) {
     const seq = PATTERNS[pattern] || [150];
-    // Android: use navigator.vibrate
-    if (navigator.vibrate) {
-      navigator.vibrate(seq);
-      return;
-    }
-    // iOS: simulate via AudioContext clicks (triggers Taptic Engine)
-    try {
-      const ctx = new (window.AudioContext || window.webkitAudioContext)();
-      let time = ctx.currentTime;
-      let isVibrating = true;
-      seq.forEach((ms, i) => {
-        if (isVibrating) {
-          // create a brief click burst
-          const buf = ctx.createBuffer(1, Math.ceil(ctx.sampleRate * ms / 1000), ctx.sampleRate);
-          const data = buf.getChannelData(0);
-          for (let j = 0; j < data.length; j++) {
-            data[j] = (Math.random() * 2 - 1) * Math.exp(-j / (ctx.sampleRate * 0.002));
-          }
-          const src = ctx.createBufferSource();
-          const gain = ctx.createGain();
-          src.buffer = buf;
-          gain.gain.value = 1.5;
-          src.connect(gain);
-          gain.connect(ctx.destination);
-          src.start(time);
-        }
-        time += ms / 1000;
-        isVibrating = !isVibrating;
-      });
-    } catch {}
+    let delay = 0, isOn = true;
+    seq.forEach(ms => {
+      if (isOn) setTimeout(() => vibrateOnce(ms), delay);
+      delay += ms; isOn = !isOn;
+    });
   }
 
   function hapticForLevel(level) {
@@ -538,15 +549,26 @@
     if (level === 'warning' && document.getElementById('hapticWarning').checked) vibrate(hapticPrefs.warning);
   }
 
-  // haptic option pickers — vibrate immediately on tap
-  document.querySelectorAll('.haptic-option').forEach(opt => {
+  // haptic pattern pickers
+  document.querySelectorAll('.haptic-option[data-pattern]').forEach(opt => {
     opt.addEventListener('click', () => {
       const target  = opt.dataset.target;
       const pattern = opt.dataset.pattern;
       document.querySelectorAll(`.haptic-option[data-target="${target}"]`).forEach(o => o.classList.remove('active'));
       opt.classList.add('active');
       hapticPrefs[target] = pattern;
-      vibrate(pattern); // feel it immediately when selected
+      vibrate(pattern);
+    });
+  });
+
+  // ── ELEVENLABS VOICE PICKER ───────────────────────────────────
+  let selectedVoiceId = 'pFZP5JQG7iQjIQuC4Bku'; // default: Lily
+
+  document.querySelectorAll('.haptic-option[data-voice-id]').forEach(opt => {
+    opt.addEventListener('click', () => {
+      document.querySelectorAll('.haptic-option[data-voice-id]').forEach(o => o.classList.remove('active'));
+      opt.classList.add('active');
+      selectedVoiceId = opt.dataset.voiceId;
     });
   });
 
@@ -570,7 +592,7 @@
       fetch(`${BACKEND}/tts`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' },
-        body: JSON.stringify({ text, api_key: elevenKey })
+        body: JSON.stringify({ text, api_key: elevenKey, voice_id: selectedVoiceId })
       }).then(res => {
         if (res.ok) return res.blob();
         throw new Error();
@@ -656,12 +678,9 @@
   }
 
   btnStart.addEventListener('click', async () => {
-    // iOS Safari: unlock speech on user gesture
-    try {
-      const u = new SpeechSynthesisUtterance('');
-      u.volume = 0;
-      window.speechSynthesis.speak(u);
-    } catch {}
+    // iOS Safari: unlock speech and haptic on user gesture
+    try { const u = new SpeechSynthesisUtterance(''); u.volume = 0; window.speechSynthesis.speak(u); } catch {}
+    try { getHapticCtx(); } catch {}
     const ok = await startCamera();
     if (!ok) return;
     setTimeout(initLocation, 800);
