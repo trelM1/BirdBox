@@ -190,6 +190,7 @@
 <script>
   const GOOGLE_MAPS_API_KEY = 'AIzaSyAfLt0wEer0nmX_WN3-1e--PWN18nJO91E';
   let ws=null,map=null,marker=null,circle=null,pulseCircle=null,mapsReady=false;
+  let trailPath=null,trailCoords=[],obstacleDots=[];
   let logCount=0,stats={total:0,warning:0,urgent:0},activeFilter='all',allEntries=[];
   let lastUpdateTime=null,statusAgeTimer=null;
 
@@ -316,6 +317,10 @@
     if(!mapsReady)return;
     const color=levelColors[level]||levelColors.safe;
     const pos={lat,lng};
+
+    // add to trail
+    trailCoords.push(pos);
+
     if(!map){
       map=new google.maps.Map(document.getElementById('map'),{
         center:pos,zoom:17,mapTypeControl:false,streetViewControl:false,fullscreenControl:true,
@@ -336,17 +341,39 @@
           {featureType:'landscape',elementType:'geometry',stylers:[{color:'#0d1420'}]},
         ]
       });
+
+      // trail polyline
+      trailPath=new google.maps.Polyline({
+        path:trailCoords,map,
+        strokeColor:'#00e5c8',strokeOpacity:0.6,strokeWeight:2,
+        icons:[{icon:{path:google.maps.SymbolPath.FORWARD_CLOSED_ARROW,scale:2,strokeColor:'#00e5c8'},offset:'100%',repeat:'60px'}]
+      });
+
       marker=new google.maps.Marker({position:pos,map,title:'BirdBox User',
         icon:{path:google.maps.SymbolPath.CIRCLE,scale:10,fillColor:color,fillOpacity:1,strokeColor:'#06090f',strokeWeight:3},zIndex:10});
       circle=new google.maps.Circle({map,center:pos,radius:12,fillColor:color,fillOpacity:.12,strokeColor:color,strokeOpacity:.35,strokeWeight:1});
       pulseCircle=new google.maps.Circle({map,center:pos,radius:25,fillColor:color,fillOpacity:.05,strokeColor:color,strokeOpacity:.2,strokeWeight:1});
     } else {
+      // update trail
+      trailPath.setPath(trailCoords);
+
       marker.setPosition(pos);
       marker.setIcon({path:google.maps.SymbolPath.CIRCLE,scale:10,fillColor:color,fillOpacity:1,strokeColor:'#06090f',strokeWeight:3});
       circle.setCenter(pos);circle.setOptions({fillColor:color,strokeColor:color});
       pulseCircle.setCenter(pos);pulseCircle.setOptions({fillColor:color,strokeColor:color});
       map.panTo(pos);
     }
+
+    // drop a colored dot for warnings/urgent
+    if(level==='warning'||level==='urgent'){
+      const dot=new google.maps.Marker({
+        position:pos,map,
+        icon:{path:google.maps.SymbolPath.CIRCLE,scale:5,fillColor:color,fillOpacity:0.9,strokeColor:'#06090f',strokeWeight:1.5},
+        zIndex:5
+      });
+      obstacleDots.push(dot);
+    }
+
     new google.maps.Geocoder().geocode({location:pos},(results,status)=>{
       if(status==='OK'&&results[0])document.getElementById('mapAddress').textContent=results[0].formatted_address;
     });
