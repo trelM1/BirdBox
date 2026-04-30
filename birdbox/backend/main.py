@@ -103,7 +103,17 @@ def format_distance(meters: float) -> str:
     return f"{round(meters/1000, 1)} km"
 
 
-# ── 1. Reverse geocode ────────────────────────────────────────
+# ── 0. Health check ───────────────────────────────────────────
+@app.get("/health")
+async def health():
+    return {
+        "status": "ok",
+        "anthropic_key": "set" if ANTHROPIC_KEY else "MISSING",
+        "elevenlabs_key": "set" if ELEVEN_KEY else "MISSING",
+        "maps_key": "set" if MAPS_KEY else "MISSING",
+    }
+
+
 @app.get("/location/address")
 async def get_address(lat: float, lng: float):
     async with httpx.AsyncClient() as client:

@@ -281,42 +281,42 @@ const VOICES = [
     id: '21m00Tcm4TlvDq8ikWAM', name: 'Rachel', emoji: '👩',
     tag: 'Female · Calm & Clear',
     desc: 'Steady, reassuring. Great for navigation.',
-    preview: 'Path is clear ahead. Continue straight for 50 meters.',
+    preview: "Hi, I'm Rachel. Path ahead is clear — continue straight for 50 meters.",
     settings: { stability: 0.75, similarity_boost: 0.80, style: 0.10 }
   },
   {
     id: 'EXAVITQu4vr4xnSDxMaL', name: 'Bella', emoji: '👩',
     tag: 'Female · Soft & Gentle',
     desc: 'Warm and soothing. Low-stress alerts.',
-    preview: 'Caution — there is a bicycle approaching on your left.',
+    preview: "Hi, I'm Bella. Caution — there is a bicycle approaching on your left.",
     settings: { stability: 0.60, similarity_boost: 0.75, style: 0.25 }
   },
   {
     id: 'pFZP5JQG7iQjIQuC4Bku', name: 'Lily', emoji: '👩',
     tag: 'Female · Bright & Energetic',
     desc: 'Upbeat and lively. Keeps you alert.',
-    preview: 'Turn right in 20 meters — just past the intersection!',
+    preview: "Hi, I'm Lily! Turn right in 20 meters — just past the intersection!",
     settings: { stability: 0.45, similarity_boost: 0.85, style: 0.40 }
   },
   {
     id: 'pNInz6obpgDQGcFmaJgB', name: 'Adam', emoji: '👨',
     tag: 'Male · Deep & Authoritative',
     desc: 'Bold and commanding. Clear warnings.',
-    preview: 'Warning. Steps detected directly in your path. Stop now.',
+    preview: "Hi, I'm Adam. Warning — steps detected directly in your path.",
     settings: { stability: 0.82, similarity_boost: 0.88, style: 0.05 }
   },
   {
     id: 'VR6AewLTigWG4xSOukaG', name: 'Arnold', emoji: '👨',
     tag: 'Male · Crisp & Direct',
     desc: 'Sharp and precise. Fast, clear alerts.',
-    preview: 'Stop immediately. Vehicle crossing your path ahead.',
+    preview: "Hi, I'm Arnold. Stop immediately — vehicle crossing your path ahead.",
     settings: { stability: 0.68, similarity_boost: 0.80, style: 0.18 }
   },
   {
     id: 'TxGEqnHWrfWFTfGW9XjX', name: 'Josh', emoji: '👨',
     tag: 'Male · Relaxed & Natural',
     desc: 'Conversational and easy to listen to.',
-    preview: "Hey, you've arrived at your destination. Nice work!",
+    preview: "Hey, I'm Josh! You've arrived at your destination. Nice work!",
     settings: { stability: 0.40, similarity_boost: 0.72, style: 0.35 }
   }
 ];
@@ -410,15 +410,21 @@ async function previewVoice(voiceId) {
       headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' },
       body: JSON.stringify({ text: voice.preview, voice_id: voiceId, voice_settings: voice.settings })
     });
-    if (!res.ok) throw new Error();
+    if (!res.ok) {
+      const err = await res.text();
+      throw new Error(`${res.status}: ${err}`);
+    }
     const blob = await res.blob();
     previewAudio = new Audio(URL.createObjectURL(blob));
     previewAudio.onended = () => { status.textContent = `${voice.name} selected ✓`; previewAudio = null; };
-    previewAudio.play();
+    previewAudio.onerror = (e) => { status.textContent = `Audio error — using browser voice`; speakBrowser(voice.preview, ()=>{}); };
+    await previewAudio.play();
     status.textContent = `Playing ${voice.name}…`;
-  } catch {
+  } catch(e) {
+    console.error('TTS error:', e);
+    status.textContent = `Backend unavailable — using browser voice`;
     const utt = new SpeechSynthesisUtterance(voice.preview);
-    utt.onend = () => { status.textContent = `${voice.name} selected (browser fallback)`; };
+    utt.onend = () => { status.textContent = `${voice.name} selected (browser voice)`; };
     window.speechSynthesis.speak(utt);
   }
 }
@@ -523,17 +529,19 @@ function processQueue() {
   isSpeaking = true;
   const {text, resolve} = speakQueue.shift();
   const voice = VOICES.find(v => v.id === selectedVoiceId) || VOICES[2];
-  // Call our own backend — no API key in the frontend
   fetch(`${BACKEND}/tts/stream`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' },
     body: JSON.stringify({ text, voice_id: voice.id, voice_settings: voice.settings })
-  }).then(res => res.ok ? res.blob() : Promise.reject())
-    .then(blob => {
-      const audio = new Audio(URL.createObjectURL(blob));
-      audio.onended = () => { resolve(); processQueue(); };
-      audio.play();
-    }).catch(() => speakBrowser(text, () => { resolve(); processQueue(); }));
+  }).then(res => {
+    if (!res.ok) { console.error('TTS failed:', res.status); return Promise.reject(); }
+    return res.blob();
+  }).then(blob => {
+    const audio = new Audio(URL.createObjectURL(blob));
+    audio.onended = () => { resolve(); processQueue(); };
+    audio.onerror = () => { console.error('Audio playback error'); speakBrowser(text, () => { resolve(); processQueue(); }); };
+    audio.play().catch(() => speakBrowser(text, () => { resolve(); processQueue(); }));
+  }).catch(() => speakBrowser(text, () => { resolve(); processQueue(); }));
 }
 
 function speakBrowser(text, cb) {
@@ -676,6 +684,13 @@ async function handleVoiceCommand(text) {
         location: userLocation ? { lat: userLocation.lat, lng: userLocation.lng, address: cachedAddress } : null
       })
     });
+    if (!res.ok) {
+      const errText = await res.text();
+      console.error('Chat stream error:', res.status, errText);
+      aiTranscript.textContent = `BirdBox: Error ${res.status} — is the backend running?`;
+      await speakBrowser(`Sorry, the server returned an error.`, ()=>{});
+      return;
+    }
     const reader=res.body.getReader(), decoder=new TextDecoder(); let reply='';
     while(true){
       const{done,value}=await reader.read(); if(done)break;
