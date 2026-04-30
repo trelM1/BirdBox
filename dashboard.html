@@ -190,7 +190,8 @@
 <script>
   const GOOGLE_MAPS_API_KEY = 'AIzaSyAfLt0wEer0nmX_WN3-1e--PWN18nJO91E';
   let ws=null,map=null,marker=null,circle=null,pulseCircle=null,mapsReady=false;
-  let trailPath=null,trailCoords=[],obstacleDots=[];
+  let trailLine=null,trailCoords=[],obstacleDots=[];
+  let lastTrailPos=null;
   let logCount=0,stats={total:0,warning:0,urgent:0},activeFilter='all',allEntries=[];
   let lastUpdateTime=null,statusAgeTimer=null;
 
@@ -311,6 +312,13 @@
   window.initMap=function(){mapsReady=true;};
   const levelColors={safe:'#00e87a',warning:'#ffb020',urgent:'#ff4545',info:'#00e5c8'};
 
+  function haversine2(lat1,lng1,lat2,lng2){
+    const R=6371000,p1=lat1*Math.PI/180,p2=lat2*Math.PI/180;
+    const dp=(lat2-lat1)*Math.PI/180,dl=(lng2-lng1)*Math.PI/180;
+    const a=Math.sin(dp/2)**2+Math.cos(p1)*Math.cos(p2)*Math.sin(dl/2)**2;
+    return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+  }
+
   function updateMap(lat,lng,level){
     const placeholder=document.getElementById('map-placeholder');
     if(placeholder)placeholder.style.display='none';
@@ -318,8 +326,9 @@
     const color=levelColors[level]||levelColors.safe;
     const pos={lat,lng};
 
-    // add to trail
-    trailCoords.push(pos);
+    // only add to trail if moved at least 3 meters
+    const shouldAddTrail = !lastTrailPos || haversine2(lastTrailPos.lat,lastTrailPos.lng,lat,lng) > 3;
+    if(shouldAddTrail){ trailCoords.push(pos); lastTrailPos=pos; }
 
     if(!map){
       map=new google.maps.Map(document.getElementById('map'),{
@@ -342,11 +351,14 @@
         ]
       });
 
-      // trail polyline
-      trailPath=new google.maps.Polyline({
-        path:trailCoords,map,
-        strokeColor:'#00e5c8',strokeOpacity:0.6,strokeWeight:2,
-        icons:[{icon:{path:google.maps.SymbolPath.FORWARD_CLOSED_ARROW,scale:2,strokeColor:'#00e5c8'},offset:'100%',repeat:'60px'}]
+      // trail polyline using MVCArray for live updates
+      trailLine=new google.maps.Polyline({
+        path: new google.maps.MVCArray(trailCoords),
+        map,
+        strokeColor:'#00e5c8',
+        strokeOpacity:0.7,
+        strokeWeight:3,
+        zIndex:2
       });
 
       marker=new google.maps.Marker({position:pos,map,title:'BirdBox User',
@@ -355,7 +367,7 @@
       pulseCircle=new google.maps.Circle({map,center:pos,radius:25,fillColor:color,fillOpacity:.05,strokeColor:color,strokeOpacity:.2,strokeWeight:1});
     } else {
       // update trail
-      trailPath.setPath(trailCoords);
+      if(shouldAddTrail) trailLine.getPath().push(new google.maps.LatLng(lat,lng));
 
       marker.setPosition(pos);
       marker.setIcon({path:google.maps.SymbolPath.CIRCLE,scale:10,fillColor:color,fillOpacity:1,strokeColor:'#06090f',strokeWeight:3});
