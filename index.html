@@ -209,38 +209,6 @@
     </div>
   </div>
 
-  <div class="settings-section">
-    <div class="section-label">🔔 Haptic Feedback <span style="font-size:9px;color:var(--muted);text-transform:none;letter-spacing:0">(Android only)</span></div>
-    <div class="setting-row">
-      <div><div class="setting-label-text">Obstacle Warning</div><div class="setting-desc">Vibration when warning detected</div></div>
-      <label class="toggle"><input type="checkbox" id="hapticWarning" checked><span class="toggle-slider"></span></label>
-    </div>
-    <div class="haptic-picker" id="pickerWarning">
-      <div class="haptic-option active" data-target="warning" data-pattern="single">· Single<span class="haptic-hint">150ms</span></div>
-      <div class="haptic-option" data-target="warning" data-pattern="double">·· Double<span class="haptic-hint">2 pulses</span></div>
-      <div class="haptic-option" data-target="warning" data-pattern="long">— Long<span class="haptic-hint">600ms</span></div>
-    </div>
-    <div class="setting-row" style="margin-top:10px">
-      <div><div class="setting-label-text">Urgent Obstacle</div><div class="setting-desc">Vibration for immediate hazard</div></div>
-      <label class="toggle"><input type="checkbox" id="hapticUrgent" checked><span class="toggle-slider"></span></label>
-    </div>
-    <div class="haptic-picker" id="pickerUrgent">
-      <div class="haptic-option" data-target="urgent" data-pattern="single">· Single<span class="haptic-hint">150ms</span></div>
-      <div class="haptic-option" data-target="urgent" data-pattern="double">·· Double<span class="haptic-hint">2 pulses</span></div>
-      <div class="haptic-option active" data-target="urgent" data-pattern="triple">··· Triple<span class="haptic-hint">3 pulses</span></div>
-      <div class="haptic-option" data-target="urgent" data-pattern="long">— Long<span class="haptic-hint">600ms</span></div>
-    </div>
-    <div class="setting-row" style="margin-top:10px">
-      <div><div class="setting-label-text">Navigation Turn</div><div class="setting-desc">Vibration at each turn</div></div>
-      <label class="toggle"><input type="checkbox" id="hapticNav" checked><span class="toggle-slider"></span></label>
-    </div>
-    <div class="haptic-picker" id="pickerNav">
-      <div class="haptic-option" data-target="nav" data-pattern="single">· Single<span class="haptic-hint">150ms</span></div>
-      <div class="haptic-option" data-target="nav" data-pattern="triple">··· Triple<span class="haptic-hint">3 pulses</span></div>
-      <div class="haptic-option active" data-target="nav" data-pattern="nav">— — Nav<span class="haptic-hint">2 long</span></div>
-      <div class="haptic-option" data-target="nav" data-pattern="long">—— Long<span class="haptic-hint">600ms</span></div>
-    </div>
-  </div>
 
   <div class="settings-section">
     <div class="section-label">🔊 Audio</div>
@@ -541,7 +509,10 @@ function vibrateOnce(ms) {
   try { const c=getHapticCtx(),sr=c.sampleRate,len=Math.ceil(sr*.015),buf=c.createBuffer(1,len,sr),d=buf.getChannelData(0); for(let i=0;i<len;i++)d[i]=(i<len*.4?1:-.5)*Math.exp(-i/(sr*.003)); const src=c.createBufferSource(),gain=c.createGain(); src.buffer=buf; gain.gain.value=4; src.connect(gain); gain.connect(c.destination); src.start(c.currentTime); } catch {}
 }
 function vibrate(pattern) { const seq=PATTERNS[pattern]||[150]; let delay=0,isOn=true; seq.forEach(ms=>{if(isOn)setTimeout(()=>vibrateOnce(ms),delay);delay+=ms;isOn=!isOn;}); }
-function hapticForLevel(level) { if(level==='urgent'&&document.getElementById('hapticUrgent').checked)vibrate(hapticPrefs.urgent); if(level==='warning'&&document.getElementById('hapticWarning').checked)vibrate(hapticPrefs.warning); }
+function hapticForLevel(level) {
+  if (level==='urgent')  vibrate(hapticPrefs.urgent);
+  if (level==='warning') vibrate(hapticPrefs.warning);
+}
 
 // ── SPEECH — always tries ElevenLabs first ────────────────────
 let isSpeaking = false;
@@ -690,8 +661,26 @@ async function handleVoiceCommand(text) {
 
   // navigation intent
   const navMatch = lower.match(/(?:take me to|navigate to|go to|directions to|direct me to|bring me to|find|get me to|walk me to|lead me to|i want to go to|how do i get to)\s+(.+)/i);
-  if (navMatch && userLocation) {
+  if (navMatch) {
     const query = navMatch[1].trim();
+    aiTranscript.textContent=`BirdBox: Getting your location...`;
+
+    // get fresh GPS position before searching
+    const freshLocation = await new Promise(resolve => {
+      if (!navigator.geolocation) { resolve(userLocation); return; }
+      navigator.geolocation.getCurrentPosition(
+        pos => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+        () => resolve(userLocation), // fallback to cached
+        { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
+      );
+    });
+
+    if (!freshLocation) {
+      await speak('I need your location first. Please enable GPS and try again.');
+      return;
+    }
+    userLocation = freshLocation;
+
     aiTranscript.textContent=`BirdBox: Searching for ${query} nearby...`;
     await speak(`Searching for ${query} nearby.`);
     try {
@@ -701,7 +690,7 @@ async function handleVoiceCommand(text) {
       window._navPlaces=data.places; window._navQuery=query;
       aiTranscript.textContent=`BirdBox: ${data.speech}`; await speak(data.speech);
       setTimeout(()=>{ if(!commandMode)listenForSelection(); },500);
-    } catch { await speak('Sorry, there was an error searching for locations.'); }
+    } catch(e) { console.error('Nav error:', e); await speak('Sorry, there was an error searching for locations.'); }
     return;
   }
 
@@ -786,7 +775,7 @@ async function announceStep(index) {
   if(index>=navSteps.length)return;
   const step=navSteps[index]; lastAnnouncedStep=index;
   navStepEl.textContent=step.instruction; navStepDistEl.textContent=step.distance_text;
-  if(document.getElementById('hapticNav').checked)vibrate('nav');
+  if(document.getElementById('hapticNav')?.checked) vibrate('nav');
   await speak(step.instruction);
 }
 
@@ -800,7 +789,7 @@ async function checkNavProgress() {
   if(distToStep<20&&navStepIndex!==lastAnnouncedStep){lastAnnouncedStep=navStepIndex;navStepIndex++;if(navStepIndex<navSteps.length)await announceStep(navStepIndex);return;}
   if(distToStep<40&&distToStep>=20&&navStepIndex!==lastAnnouncedStep){
     const upcoming=navSteps[navStepIndex];
-    if(/turn|left|right|cross|continue/i.test(upcoming.instruction)){lastAnnouncedStep=navStepIndex;await speak(`In ${Math.round(distToStep)} meters, ${upcoming.instruction}`);if(document.getElementById('hapticNav').checked)vibrate('nav');}
+    if(/turn|left|right|cross|continue/i.test(upcoming.instruction)){lastAnnouncedStep=navStepIndex;await speak(`In ${Math.round(distToStep)} meters, ${upcoming.instruction}`);vibrate('nav');}
   }
 }
 
