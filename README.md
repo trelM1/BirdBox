@@ -1,4 +1,8 @@
 # BirdBox
+
+## Demo 
+[Visit BirdBox](https://hheresjohnny.github.io/BirdBox/)
+
 ## What was our inspiration?
 
 Over 250 million people worldwide live with visual impairment, yet most assistive navigation tools are either expensive, bulky, or require specialized hardware. We wanted to build something that anyone could use right now, with just the phone already in their pocket. BirdBox was born from a simple question: what if your phone could be your eyes?
