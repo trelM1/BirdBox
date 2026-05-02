@@ -1,7 +1,8 @@
 # BirdBox
 
 ## Demo 
-[Visit BirdBox](https://hheresjohnny.github.io/BirdBox/)
+Mobile: [Visit BirdBox](https://hheresjohnny.github.io/BirdBox/)
+Dashboard: [BirdBox Dashboard](https://hheresjohnny.github.io/BirdBox/dashboard.html)
 
 ## What was our inspiration?
 
